@@ -1,3 +1,4 @@
-from processor import *
+from lib.processor import __version__
 
 print("hello world")
+print(__version__)
