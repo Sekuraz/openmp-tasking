@@ -1,4 +1,23 @@
-from lib.processor import __version__
+#!/usr/bin/env python3
 
-print("hello world")
-print(__version__)
+import os
+
+from argparse import ArgumentParser
+
+from lib.processor import CodeBase
+
+def main():
+    parser = ArgumentParser(description='Transform codebase to ClusterMP')
+    parser.add_argument('-d', '--directory', action='store',
+                        help='The codebase to transform')
+    args = parser.parse_args()
+
+    os.chdir(args.directory)
+
+    cb = CodeBase(args.directory)
+    cb.parse()
+
+    print(cb)
+
+if __name__ == '__main__':
+    main()

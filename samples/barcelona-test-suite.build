@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+set -x
+
+cd "$( dirname "${BASH_SOURCE[0]}" )"
+cd barcelona-test-suite
+
+git clean -fd > /dev/null
+git checkout . > /dev/null
+
+../../preprocessor -d `pwd`
+
+./configure --compiler gcc > /dev/null
+make > /dev/null
+
+bin/strassen.gcc.omp-tasks -n 4096
