@@ -1,0 +1,3 @@
+[submodule "bots"]
+	path = samples/barcelona-test-suite
+	url = https://github.com/bsc-pm/bots.git
