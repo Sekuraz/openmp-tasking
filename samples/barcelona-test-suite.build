@@ -5,7 +5,7 @@ set -x
 cd "$( dirname "${BASH_SOURCE[0]}" )"
 cd barcelona-test-suite
 
-git clean -fd > /dev/null
+git clean -fdx > /dev/null
 git checkout . > /dev/null
 
 ../../preprocessor -d `pwd`
