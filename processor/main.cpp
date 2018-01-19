@@ -56,22 +56,9 @@ public:
         TheRewriter.InsertTextAfterToken(task->getLocEnd(), "\nTask t(1);\n");
 
 
-        if (task->hasClausesOfKind<OMPIfClause>()) {
-            auto clause = task->getSingleClause<OMPIfClause>();
-            auto cond = clause->getCondition();
+        this->extractConditionClause<OMPIfClause>(*task, "if_clause");
+        this->extractConditionClause<OMPFinalClause>(*task, "final");
 
-            auto source = this->getSourceCode(*cond);
-
-            TheRewriter.InsertTextAfterToken(task->getLocEnd(), "t.if_clause = (" + source + ");\n");
-        }
-        if (task->hasClausesOfKind<OMPFinalClause>()) {
-            auto clause = task->getSingleClause<OMPFinalClause>();
-            auto cond = clause->getCondition();
-
-            auto source = this->getSourceCode(*cond);
-
-            TheRewriter.InsertTextAfterToken(task->getLocEnd(), "t.final = (" + source + ");\n");
-        }
         if (task->hasClausesOfKind<OMPUntiedClause>()) {
             TheRewriter.InsertTextAfterToken(task->getLocEnd(), "t.untied = true;\n");
         }
@@ -86,45 +73,11 @@ public:
         if (task->hasClausesOfKind<OMPMergeableClause>()) {
             TheRewriter.InsertTextAfterToken(task->getLocEnd(), "t.mergeable = true;\n");
         }
-        if (task->hasClausesOfKind<OMPPrivateClause>()) {
-            auto clause = task->getSingleClause<OMPPrivateClause>();
-            for (auto &&pc : clause->private_copies()) {
-                if (isa<DeclRefExpr>(pc)) {
-                    auto expr = cast<DeclRefExpr>(pc);
-                    this->insertVarCapture(*expr->getDecl(), task->getLocEnd(), at_private);
-                } else {
-                    llvm::errs() << "don't know how to handle a non DeclRef in a private clause, exiting.";
-                    llvm::errs().flush();
-                    exit(1);
-                }
-            }
-        }
-        if (task->hasClausesOfKind<OMPFirstprivateClause>()) {
-            auto clause = task->getSingleClause<OMPFirstprivateClause>();
-            for (auto &&pc : clause->private_copies()) {
-                if (isa<DeclRefExpr>(pc)) {
-                    auto expr = cast<DeclRefExpr>(pc);
-                    this->insertVarCapture(*expr->getDecl(), task->getLocEnd(), at_firstprivate);
-                } else {
-                    llvm::errs() << "don't know how to handle a non DeclRef in a firstprivate clause, exiting.";
-                    llvm::errs().flush();
-                    exit(1);
-                }
-            }
-        }
-        if (task->hasClausesOfKind<OMPSharedClause>()) {
-            auto clause = task->getSingleClause<OMPSharedClause>();
-            for (auto &&pc : clause->varlists()) {
-                if (isa<DeclRefExpr>(pc)) {
-                    auto expr = cast<DeclRefExpr>(pc);
-                    this->insertVarCapture(*expr->getDecl(), task->getLocEnd(), at_shared);
-                } else {
-                    llvm::errs() << "don't know how to handle a non DeclRef in a shared clause, exiting.";
-                    llvm::errs().flush();
-                    exit(1);
-                }
-            }
-        }
+
+        this->extractAccessClause<OMPPrivateClause>(*task, "private");
+        this->extractAccessClause<OMPFirstprivateClause>(*task, "firstprivate");
+        this->extractAccessClause<OMPSharedClause>(*task, "shared");
+
         if (task->hasClausesOfKind<OMPDependClause>()) {
             for (auto &&clause : task->getClausesOfKind<OMPDependClause>()) {
                 for (auto &&pc : clause->varlists()) {
@@ -162,26 +115,62 @@ public:
             }
         }
         if (task->hasClausesOfKind<OMPPriorityClause>()) {
+
             auto clause = task->getSingleClause<OMPPriorityClause>();
+            auto cond = clause->getPriority();
 
-            auto priority = clause->getPriority();
+            auto source = this->getSourceCode(*cond);
 
-            auto source = this->getSourceCode(*priority);
             TheRewriter.InsertTextAfterToken(task->getLocEnd(), "t.priority = (" + source + ");\n");
         }
 
         for (auto var : code->captures()) {
-            this->insertVarCapture(*var.getCapturedVar(), task->getLocEnd(), at_default);
+            this->insertVarCapture(*var.getCapturedVar(), task->getLocEnd(), "default");
         }
 
         auto source = this->getSourceCode(*code);
 
-        llvm::outs() << source << "\n";
+        if (source.back() != '}') { // single line
+            source = "{ " + source + "; }";
+        }
 
+        llvm::outs() << source << "\n";
+        llvm::outs().flush();
 
         task->dump();
 
         return true; // Is true correct?
+    }
+
+    template<typename ClauseType>
+    void extractConditionClause(const OMPTaskDirective& task, const string& property_name) {
+        if (task.hasClausesOfKind<ClauseType>()) {
+
+            auto clause = task.getSingleClause<ClauseType>();
+            auto cond = clause->getCondition();
+
+            auto source = this->getSourceCode(*cond);
+
+            TheRewriter.InsertTextAfterToken(task.getLocEnd(), "t." + property_name + " = (" + source + ");\n");
+        }
+    }
+
+    template<typename ClauseType>
+    void extractAccessClause(const OMPTaskDirective& task, const string& access_name) {
+         if (task.hasClausesOfKind<ClauseType>()) {
+
+            auto clause = task.getSingleClause<ClauseType>();
+            for (auto &&pc : clause->varlists()) {
+                if (isa<DeclRefExpr>(pc)) {
+                    auto expr = cast<DeclRefExpr>(pc);
+                    this->insertVarCapture(*expr->getDecl(), task.getLocEnd(), access_name);
+                } else {
+                    llvm::errs() << "don't know how to handle a non DeclRef in a " + access_name + " clause, exiting.";
+                    llvm::errs().flush();
+                    exit(1);
+                }
+            }
+        }
     }
 
     string getSourceCode(const Stmt& stmt) {
@@ -194,27 +183,12 @@ public:
         return source.str();
     }
 
-    void insertVarCapture(const NamedDecl& var, const SourceLocation& destination, const access_type at) {
-        string at_string;
-
-        switch(at) {
-            case at_private:
-                at_string = "at_private";
-                break;
-            case at_firstprivate:
-                at_string = "at_firstprivate";
-                break;
-            case at_shared:
-                at_string = "at_shared";
-                break;
-            default:
-                at_string = "at_default";
-        }
+    void insertVarCapture(const NamedDecl& var, const SourceLocation& destination, const string& access_name) {
 
         auto name = var.getName();
 
         if (this->handled_vars.find(name.str()) == this->handled_vars.end()) {
-            string c = "{\n\tVar " + name.str() + "_var = {\"" + name.str() + "\", &" + name.str() + ", " + at_string + "};";
+            string c = "{\n\tVar " + name.str() + "_var = {\"" + name.str() + "\", &" + name.str() + ", at_" + access_name + "};";
             c += "\n\tt.vars.push_back(" + name.str() + "_var);\n}\n";
             TheRewriter.InsertTextAfterToken(destination, c);
             this->handled_vars.insert(name.str());
