@@ -9,11 +9,11 @@ void create_task(int* task_descr, int length){
 	MPI_Send(task_descr, length, MPI_INT, re_rank, TAG_CREATE, MPI_COMM_WORLD);	
 }
 
-void run_task(int task_id, int* task_descr, int length){
+void run_task(int task_id, int* task_descr, int length, int worker_id){
 	int* message = (int*) malloc((length+1)*sizeof(int));
 	message[0] = task_id;
 	copy(task_descr, task_descr + length, message+1);
-	MPI_Send(message, length+1, MPI_INT, worker_rank, TAG_COMMAND, MPI_COMM_WORLD);
+	MPI_Send(message, length+1, MPI_INT, worker_id, TAG_COMMAND, MPI_COMM_WORLD);
 	free(message);
 }
 

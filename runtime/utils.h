@@ -9,6 +9,5 @@ const int TAG_WAIT = 40;
 
 const int main_rank = 0;
 const int re_rank = 1;
-const int worker_rank = 2;
 
 #endif

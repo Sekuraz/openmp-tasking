@@ -4,19 +4,28 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include "mpi.h"
+#include <thread>
+#include <chrono>
 
 #include <deque>
 #include <set>
+#include <vector>
 
 using namespace std;
 
 void worker::event_loop(){
 
+	srand(time(NULL));
+
 	bool quit_loop = false;
 
+	int worker_rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &worker_rank);
+
 	while(!quit_loop){
-		printf("worker waiting for command\n");
+		printf("worker %d waiting for command\n", worker_rank);
 		MPI_Status status;
 		MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
@@ -32,30 +41,32 @@ void worker::event_loop(){
 		switch(tag){
 			case TAG_COMMAND:
 				{
-					printf("worker received COMMAND signal");
+					printf("worker %d received COMMAND signal\n", worker_rank);
 					int task_id = recv_buffer[0];
 					int* task_descr = recv_buffer+1;
 					int task_descr_length = buffer_size -1;
 
-					printf("running task %d\n", task_id);
-					//run the task here
-					printf("finished task %d\n", task_id);
+					printf("worker %d running task %d\n", worker_rank, task_id);
+					//sleep some time to do some "work"
+					int sleep_time = (rand() / (float) RAND_MAX) * 1000;
+					this_thread::sleep_for(chrono::milliseconds(1000));
+					printf("worker %d finished task %d\n", worker_rank, task_id);
 
 					finish_task(task_id);
 				}
 				break;
 			case TAG_QUIT:
-				printf("worker received QUIT signal\n");
+				printf("worker %d received QUIT signal\n", worker_rank);
 				quit_loop = true;
 				break;
 			default:
-				printf("worker received a message with the unknown tag: %d.\n", tag);
+				printf("worker %d received a message with the unknown tag: %d.\n", worker_rank, tag);
 				break;
 		}
 		free(recv_buffer);
 
 	}
-	printf("worker event loop finished\n");
+	printf("worker %d event loop finished\n", worker_rank);
 }
 
 void main_thread::event_loop(){
@@ -80,7 +91,19 @@ void re::event_loop(){
 	printf("re event loop started\n");
 	
 	//status variables:
-	int free_workers = 1;
+	int free_workers = 0;
+	vector<worker_s> workers;
+	int world_size;
+	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+	for(int i = 2; i < world_size; i++){
+		worker_s w;
+		w.node_id = i;
+		w.capacity = 1;
+		free_workers += w.capacity;
+		workers.push_back(w);
+	}	
+
   set<int> running_tasks;
 	deque<int> queued_tasks;	
 	int task_id_counter = 0;
@@ -109,8 +132,14 @@ void re::event_loop(){
 				break;
 			case TAG_COMMAND:
 				// worker has finished a task
-				printf("re received a finished_task from a worker\n");
+				printf("re received a finished_task from worker %d\n", source);
 				free_workers++;
+				for(int i = 0; i < workers.size(); i++){
+					if(workers[i].node_id == source){
+						workers[i].capacity+=1;
+						break;
+					} 
+				}
 				running_tasks.erase(recv_buffer[0]);
 				break;
 			case TAG_CREATE:
@@ -125,16 +154,21 @@ void re::event_loop(){
 
 		free(recv_buffer);
 
-		//check if there are free workers
 		while(free_workers > 0 && queued_tasks.size() > 0){
 			int task_id = task_id_counter;
 			task_id_counter++;
-			printf("re scheduling new task with id %d\n", task_id);
 
 			int task_descr = queued_tasks.front();
 			queued_tasks.pop_front();
-
-			run_task(task_id, &task_descr, 1);
+			
+			for(int i = 0; i < workers.size(); i++){
+				if(workers[i].capacity > 0){
+					workers[i].capacity-=1;
+					printf("re scheduling new task with id %d on worker %d\n", task_id, workers[i].node_id);
+					run_task(task_id, &task_descr, 1, workers[i].node_id);
+					break;
+				} 
+			}
 			running_tasks.insert(task_id);
 			free_workers--;
 		}
@@ -144,8 +178,10 @@ void re::event_loop(){
 				& queued_tasks.size() == 0
 				& main_waiting){
 			printf("re termination requirements fulfilled\n");
-			printf("re sending quit to worker\n");
-			quit(worker_rank);
+			for(worker_s w : workers){
+				printf("re sending quit to worker %d\n", w.node_id);
+				quit(w.node_id);
+			}
 			printf("re sending quit to main thread\n");
 			quit(main_rank);
 			quit_loop = true;

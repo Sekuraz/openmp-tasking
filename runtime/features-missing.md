@@ -1,4 +1,3 @@
-- multiple workers
 - convert to Isend (memory management needed)
 - workers run tasks in threads
 - worker capacity (multiple tasks per worker)
@@ -9,3 +8,6 @@
 - taskwait
   - suspend tasks
 - task dependencies
+
+done:
++ multiple workers

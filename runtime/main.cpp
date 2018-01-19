@@ -11,25 +11,16 @@ int main(){
 	int world_rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
-
-	switch(world_rank){
-
-		case main_rank:
+	if(world_rank == main_rank){
 			printf("main started\n");
 			main_thread::event_loop();
-			break;
-		case re_rank:
+	} else if(world_rank == re_rank) {
 			printf("re started\n");
 			re::event_loop();
-			break;
-		case worker_rank:
-			printf("worker started\n");
+	} else {
+			printf("worker %d started\n", world_rank);
 			worker::event_loop();
-			printf("worker finished\n");
-			break;
-		default:
-			break;
+			printf("worker %d finished\n", world_rank);
 	}
-
 	MPI_Finalize();
 }
