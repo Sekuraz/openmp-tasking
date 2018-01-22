@@ -19,7 +19,8 @@ int main(){
 			re::event_loop();
 	} else {
 			printf("worker %d started\n", world_rank);
-			worker::event_loop();
+			worker w;
+			w.event_loop();
 			printf("worker %d finished\n", world_rank);
 	}
 	MPI_Finalize();

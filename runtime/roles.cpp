@@ -8,12 +8,28 @@
 #include "mpi.h"
 #include <thread>
 #include <chrono>
+#include <functional>
 
 #include <deque>
 #include <set>
 #include <vector>
 
 using namespace std;
+worker::worker(){
+	MPI_Comm_rank(MPI_COMM_WORLD, &worker_rank);
+};
+
+void worker::task_wrapper_function(atomic<bool> &finish_flag, int* task_descr, int task_descr_length){
+	printf("worker %d running task %d\n", 0,0);
+	//printf("worker %d running task %d\n", worker_rank, task_id);
+	//sleep some time to do some "work"
+	int sleep_time = (rand() / (float) RAND_MAX) * 1000;
+	this_thread::sleep_for(chrono::milliseconds(1000));
+	printf("worker %d finished task %d\n", 0,0);
+	//printf("worker %d finished task %d\n", worker_rank, task_id);
+
+	finish_flag = true;
+}
 
 void worker::event_loop(){
 
@@ -46,12 +62,17 @@ void worker::event_loop(){
 					int* task_descr = recv_buffer+1;
 					int task_descr_length = buffer_size -1;
 
-					printf("worker %d running task %d\n", worker_rank, task_id);
-					//sleep some time to do some "work"
-					int sleep_time = (rand() / (float) RAND_MAX) * 1000;
-					this_thread::sleep_for(chrono::milliseconds(1000));
-					printf("worker %d finished task %d\n", worker_rank, task_id);
+					atomic<bool> finish_flag{false};
 
+					thread t(&worker::task_wrapper_function, this, std::ref(finish_flag), task_descr, task_descr_length);
+
+					while(!finish_flag){
+						//TODO remove idle loop
+						this_thread::sleep_for(chrono::milliseconds(100));
+					}
+
+					t.join();
+					
 					finish_task(task_id);
 				}
 				break;
@@ -68,6 +89,7 @@ void worker::event_loop(){
 	}
 	printf("worker %d event loop finished\n", worker_rank);
 }
+
 
 void main_thread::event_loop(){
 	printf("main thread event loop started\n");

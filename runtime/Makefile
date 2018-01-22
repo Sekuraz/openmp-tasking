@@ -1,5 +1,5 @@
 MPICXX = mpic++
-CXXFLAGS = 
+CXXFLAGS = -pthread
 
 prog: *.cpp *.h
-	$(MPICXX) *.cpp
+	$(MPICXX) $(CXXFLAGS) *.cpp
