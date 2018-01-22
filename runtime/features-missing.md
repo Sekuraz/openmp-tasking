@@ -1,5 +1,4 @@
 - convert to Isend (memory management needed)
-- workers run tasks in threads
 - worker capacity (multiple tasks per worker)
 - memory transfers
 - multiple res
@@ -10,4 +9,5 @@
 - task dependencies
 
 done:
++ workers run tasks in threads
 + multiple workers
