@@ -10,4 +10,4 @@ tdomp: $(OBJ)
 #currently a dirty fix for header files. If a header is touched all files
 # are compiled again.
 %.o: %.cpp *.h
-	$(MPICXX) -g -c $<
+	$(MPICXX) $(CXXFLAGS) -g -c $<
