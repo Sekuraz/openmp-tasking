@@ -14,8 +14,8 @@ class WorkerTask {
 		int task_id;
 		int* task_descr;
 		int task_descr_length;
-		std::atomic<bool>* finish_flag;
-		std::thread* task_thread;
+		std::shared_ptr<std::atomic<bool>> finish_flag;
+		std::shared_ptr<std::thread> task_thread;
 };
 
 class worker {

@@ -20,13 +20,15 @@ WorkerTask::WorkerTask(){
 }
 
 WorkerTask::~WorkerTask(){
-	//free(task_descr);
+	free(task_descr);
 }
 
 WorkerTask::WorkerTask(const WorkerTask& other){
-	task_descr = other.task_descr;
+	task_descr = (int*) malloc(other.task_descr_length*sizeof(int));
+	copy(other.task_descr, other.task_descr + other.task_descr_length, task_descr);
 	task_descr_length = other.task_descr_length;
 	task_id = other.task_id;
+	//flat copy is intended here
 	finish_flag = other.finish_flag;
 	task_thread = other.task_thread;
 }
@@ -42,6 +44,7 @@ void worker::task_wrapper_function(atomic<bool> &finish_flag, int* task_descr, i
 	//int sleep_time = (rand() / (float) RAND_MAX) * 1000;
 	int sleep_time = 1000;
 	this_thread::sleep_for(chrono::milliseconds(sleep_time));
+
 	/*vector<double> a;
 
 	for(int i = 0; i < 1024*1024; i++){
@@ -115,10 +118,11 @@ void worker::event_loop(){
 							printf("worker %d received COMMAND signal\n", worker_rank);
 							WorkerTask task;
 							task.task_id = recv_buffer[0];
-							task.task_descr = recv_buffer+1;
 							task.task_descr_length = recv_buffer_size -1;
-							task.finish_flag = new atomic<bool>{false};
-							task.task_thread = new thread(&worker::task_wrapper_function, this, std::ref(*(task.finish_flag)), task.task_descr, task.task_descr_length, task.task_id);
+							task.task_descr = (int*) malloc(task.task_descr_length*sizeof(int));
+							copy(recv_buffer+1, recv_buffer+recv_buffer_size, task.task_descr);
+							task.finish_flag.reset(new atomic<bool>{false});
+							task.task_thread.reset(new thread(&worker::task_wrapper_function, this, std::ref(*(task.finish_flag)), task.task_descr, task.task_descr_length, task.task_id));
 							printf("worker started task %d\n", task.task_id);
 							running_tasks.push_back(task);
 						}
