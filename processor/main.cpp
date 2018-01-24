@@ -5,6 +5,8 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <cstdarg>
+#include <sys/stat.h>
 
 
 #include "clang/AST/ASTConsumer.h"
@@ -36,15 +38,32 @@ class MyASTVisitor : public RecursiveASTVisitor<MyASTVisitor>
 {
 public:
     bool needsHeader;
+    string headerName;
+    ofstream out;
 
 private:
     Rewriter &TheRewriter;
-    set<string> handled_vars;
+    vector<string> handled_vars;
+    hash<string> hasher;
+
 
 public:
     MyASTVisitor(Rewriter &R)
         : TheRewriter(R), needsHeader(false)
-    {}
+    {
+        stringstream name;
+        name << "/tmp/tasking_functions/";
+        mkdir(name.str().c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        name << R.getSourceMgr().getFileEntryForID(R.getSourceMgr().getMainFileID())->getName().str();
+        name << ".hpp";
+        headerName = name.str();
+        out = ofstream(headerName);
+        out << "#include <cstdarg>" << endl << endl;
+    }
+
+    ~MyASTVisitor() {
+        out.close();
+    }
 
     bool VisitOMPTaskDirective(OMPTaskDirective* task) {
         auto *code = task->getCapturedStmt(task->getDirectiveKind());
@@ -55,6 +74,9 @@ public:
         TheRewriter.InsertTextBefore(task->getLocStart(), "//");
         TheRewriter.InsertTextAfterToken(task->getLocEnd(), "\nTask t(1);\n");
 
+        auto hash = hasher(task->getLocStart().printToString(TheRewriter.getSourceMgr()));
+        out << "void x_" << hash << " (int pseudo, ...) {" << endl;
+        out << "va_list args;" << endl << "va_start(args, pseudo);" << endl;
 
         this->extractConditionClause<OMPIfClause>(*task, "if_clause");
         this->extractConditionClause<OMPFinalClause>(*task, "final");
@@ -134,10 +156,10 @@ public:
             source = "{ " + source + "; }";
         }
 
-        llvm::outs() << source << "\n";
-        llvm::outs().flush();
+        out << source;
+        out << endl << "}" << endl;
 
-        task->dump();
+        //task->dump();
 
         return true; // Is true correct?
     }
@@ -183,15 +205,18 @@ public:
         return source.str();
     }
 
-    void insertVarCapture(const NamedDecl& var, const SourceLocation& destination, const string& access_name) {
+    void insertVarCapture(const ValueDecl& var, const SourceLocation& destination, const string& access_name) {
 
-        auto name = var.getName();
+        string name = var.getName().str(), type = var.getType().getAsString();
 
-        if (this->handled_vars.find(name.str()) == this->handled_vars.end()) {
-            string c = "{\n\tVar " + name.str() + "_var = {\"" + name.str() + "\", &" + name.str() + ", at_" + access_name + "};";
-            c += "\n\tt.vars.push_back(" + name.str() + "_var);\n}\n";
+        if (find(this->handled_vars.begin(), this->handled_vars.end(), name) == this->handled_vars.end()) {
+            string c = "{\n\tVar " + name + "_var = {\"" + name + "\", &" + name + ", at_" + access_name + "};";
+            c += "\n\tt.vars.push_back(" + name + "_var);\n}\n";
             TheRewriter.InsertTextAfterToken(destination, c);
-            this->handled_vars.insert(name.str());
+
+            out << "void * " << name << "_pointer = va_arg(args, void *);" << endl;
+            out << type << " " << name << " = *((" << type << "*) " << name << "_pointer);" << endl;
+            this->handled_vars.push_back(name);
         }
     }
 };
@@ -224,19 +249,37 @@ private:
 };
 
 
-int main(int argc, char *argv[]) {
+int main(int argc, const char *argv[]) {
+    /*
     if (argc > 2) {
         llvm::errs() << "Usage: rewritersample <filename>\n";
         llvm::errs() << "Default: filename = '/tmp/t.cpp'\n";
         return 1;
     }
+     */
 
     // CompilerInstance will hold the instance of the Clang compiler for us,
     // managing the various objects needed to run the compiler.
     CompilerInstance TheCompInst;
-    TheCompInst.createDiagnostics(0, false);
+    TheCompInst.createDiagnostics();
 
-    TheCompInst.getInvocation().getLangOpts()->OpenMP = 1;
+    bool hasInvocation = false;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--") == 0) {
+            hasInvocation = true;
+            auto invocation = make_shared<CompilerInvocation>();
+            CompilerInvocation::CreateFromArgs(*invocation, argv + i + 1, argv + argc, TheCompInst.getDiagnostics());
+            TheCompInst.setInvocation(invocation);
+            break;
+        }
+    }
+
+    if (!hasInvocation) {
+        TheCompInst.getInvocation().getLangOpts()->OpenMP = 1;
+    }
+
+    TheCompInst.getInvocation().getLangOpts()->CPlusPlus = 1;
+
 
     // Initialize target info with the default triple for our platform.
     auto TO = std::make_shared<TargetOptions>();
@@ -262,7 +305,7 @@ int main(int argc, char *argv[]) {
         FileIn = FileMgr.getFile(argv[1]);
 
     } else {
-        FileIn = FileMgr.getFile("/tmp/t.cpp");
+        FileIn = FileMgr.getFile("test.cpp");
     }
 
     FileID file = SourceMgr.getOrCreateFileID(FileIn, clang::SrcMgr::CharacteristicKind::C_User);
