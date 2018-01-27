@@ -18,7 +18,7 @@ class WorkerTask {
 		std::shared_ptr<std::thread> task_thread;
 };
 
-class worker {
+class Worker {
 	public:
 		std::vector<std::atomic<bool>> task_flags;
 		std::vector<std::thread> task_threads;
@@ -26,7 +26,7 @@ class worker {
 		int worker_rank;
 		int capacity;
 
-		worker();
+		Worker();
 
 		void task_wrapper_function(std::atomic<bool>& finish_flag, int* task_descr, int task_descr_length, int task_id);
 		void event_loop();

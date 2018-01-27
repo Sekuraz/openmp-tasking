@@ -19,7 +19,7 @@ int main(){
 			re::event_loop();
 	} else {
 			printf("worker %d started\n", world_rank);
-			worker w;
+			Worker w;
 			w.event_loop();
 			printf("worker %d finished\n", world_rank);
 	}

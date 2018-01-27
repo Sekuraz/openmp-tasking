@@ -10,21 +10,20 @@
 #include <chrono>
 #include <functional>
 
-#include <deque>
 #include <set>
 #include <vector>
-#include <list>
+#include <deque>
 
 using namespace std;
 WorkerTask::WorkerTask(){
 }
 
 WorkerTask::~WorkerTask(){
-	free(task_descr);
+	delete[](task_descr);
 }
 
 WorkerTask::WorkerTask(const WorkerTask& other){
-	task_descr = (int*) malloc(other.task_descr_length*sizeof(int));
+	task_descr = new int[other.task_descr_length]; 
 	copy(other.task_descr, other.task_descr + other.task_descr_length, task_descr);
 	task_descr_length = other.task_descr_length;
 	task_id = other.task_id;
@@ -34,11 +33,12 @@ WorkerTask::WorkerTask(const WorkerTask& other){
 }
 
 
-worker::worker(){
+Worker::Worker(){
 	MPI_Comm_rank(MPI_COMM_WORLD, &worker_rank);
 };
 
-void worker::task_wrapper_function(atomic<bool> &finish_flag, int* task_descr, int task_descr_length, int task_id){
+void Worker::task_wrapper_function(atomic<bool> &finish_flag,
+	 	int* task_descr, int task_descr_length, int task_id){
 	printf("worker %d running task %d\n", worker_rank, task_id);
 	//sleep some time to do some "work"
 	//int sleep_time = (rand() / (float) RAND_MAX) * 1000;
@@ -63,7 +63,7 @@ void worker::task_wrapper_function(atomic<bool> &finish_flag, int* task_descr, i
 	finish_flag = true;
 }
 
-void worker::event_loop(){
+void Worker::event_loop(){
 
 	srand(time(nullptr));
 
@@ -98,7 +98,7 @@ void worker::event_loop(){
 			MPI_Get_count(&status, MPI_INT, &recv_buffer_size);
 			tag = status.MPI_TAG;
 			source = status.MPI_SOURCE;
-			recv_buffer = (int*) malloc(recv_buffer_size*sizeof(int));
+			recv_buffer = new int[recv_buffer_size];
 			MPI_Irecv(recv_buffer, recv_buffer_size, MPI_INT, source, tag, MPI_COMM_WORLD, &request);
 			recv_pending = 0;
 			recv_running = true;
@@ -119,10 +119,12 @@ void worker::event_loop(){
 							WorkerTask task;
 							task.task_id = recv_buffer[0];
 							task.task_descr_length = recv_buffer_size -1;
-							task.task_descr = (int*) malloc(task.task_descr_length*sizeof(int));
+							task.task_descr = new int[task.task_descr_length];
 							copy(recv_buffer+1, recv_buffer+recv_buffer_size, task.task_descr);
 							task.finish_flag.reset(new atomic<bool>{false});
-							task.task_thread.reset(new thread(&worker::task_wrapper_function, this, std::ref(*(task.finish_flag)), task.task_descr, task.task_descr_length, task.task_id));
+							task.task_thread.reset(new thread(&Worker::task_wrapper_function,
+									 	this, std::ref(*(task.finish_flag)), task.task_descr,
+									 	task.task_descr_length, task.task_id));
 							printf("worker started task %d\n", task.task_id);
 							running_tasks.push_back(task);
 						}
@@ -135,7 +137,7 @@ void worker::event_loop(){
 						printf("worker %d received a message with the unknown tag: %d.\n", worker_rank, tag);
 						break;
 				}
-				free(recv_buffer);
+				delete[](recv_buffer);
 			}
 		}
 
@@ -161,13 +163,12 @@ void worker::event_loop(){
 	printf("worker %d event loop finished\n", worker_rank);
 }
 
-
 void main_thread::event_loop(){
 	//printf("main thread event loop started\n");
 
 	//create some tasks here
 	//printf("main thread is creating a task\n");
-	for(int i = 0; i < 8; i++){
+	for(int i = 0; i < 64; i++){
 		int task_descr = 1;
 		create_task(&task_descr,1);
 	}
@@ -218,7 +219,7 @@ void re::event_loop(){
 		int tag = status.MPI_TAG;
 		int source = status.MPI_SOURCE;
 
-		int* recv_buffer = (int*) malloc(buffer_size*sizeof(int));
+		int* recv_buffer = new int[buffer_size];
 		MPI_Recv(recv_buffer, buffer_size, MPI_INT, 
 				source, tag,MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
@@ -232,11 +233,11 @@ void re::event_loop(){
 				// worker has finished a task
 				printf("re received a finished_task from worker %d\n", source);
 				free_workers++;
-				for(int i = 0; i < workers.size(); i++){
-					if(workers[i].node_id == source){
-						workers[i].capacity+=1;
+				for(auto it = workers.begin(); it != workers.end(); it++){
+					if(it->node_id == source){
+						it->capacity+=1;
 						break;
-					} 
+					}
 				}
 				running_tasks.erase(recv_buffer[0]);
 				break;
@@ -250,7 +251,7 @@ void re::event_loop(){
 				break;
 		}
 
-		free(recv_buffer);
+		delete[](recv_buffer);
 
 		while(free_workers > 0 && queued_tasks.size() > 0){
 			int task_id = task_id_counter;
@@ -258,23 +259,24 @@ void re::event_loop(){
 
 			int task_descr = queued_tasks.front();
 			queued_tasks.pop_front();
-			
-			for(int i = 0; i < workers.size(); i++){
-				if(workers[i].capacity > 0){
-					workers[i].capacity-=1;
-					printf("re scheduling new task with id %d on worker %d, remaining capacity = %d \n", task_id, workers[i].node_id, workers[i].capacity);
-					run_task(task_id, &task_descr, 1, workers[i].node_id);
+			for(auto it = workers.begin(); it != workers.end(); it++){
+				if(it->capacity > 0){
+					it->capacity--;
+					printf("re scheduling new task with id %d on worker %d, remaining capacity = %d \n",
+						 	task_id, it->node_id, it->capacity);
+					run_task(task_id, &task_descr, 1, it->node_id);
 					break;
-				} 
+				}	
 			}
+			
 			running_tasks.insert(task_id);
 			free_workers--;
 		}
 
 		//check for termination:
 		if(running_tasks.size() == 0
-				& queued_tasks.size() == 0
-				& main_waiting){
+				&& queued_tasks.size() == 0
+				&& main_waiting){
 			printf("re termination requirements fulfilled\n");
 			for(worker_s w : workers){
 				printf("re sending quit to worker %d\n", w.node_id);
