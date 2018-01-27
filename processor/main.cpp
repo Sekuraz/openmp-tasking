@@ -6,8 +6,7 @@
 #include <iostream>
 #include <sstream>
 #include <cstdarg>
-#include <sys/stat.h>
-
+#include <experimental/filesystem>
 
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/RecursiveASTVisitor.h"
@@ -29,7 +28,7 @@
 
 using namespace clang;
 using namespace std;
-
+namespace fs = std::experimental::filesystem;
 
 
 // By implementing RecursiveASTVisitor, we can specify which AST nodes
@@ -39,30 +38,47 @@ class MyASTVisitor : public RecursiveASTVisitor<MyASTVisitor>
 public:
     bool needsHeader;
     string headerName;
-    ofstream out;
 
 private:
     Rewriter &TheRewriter;
     vector<string> handled_vars;
+    vector<string> generated_ids;
     hash<string> hasher;
+    stringstream out;
+
 
 
 public:
     MyASTVisitor(Rewriter &R)
         : TheRewriter(R), needsHeader(false)
     {
-        stringstream name;
-        name << "/tmp/tasking_functions/";
-        mkdir(name.str().c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-        name << R.getSourceMgr().getFileEntryForID(R.getSourceMgr().getMainFileID())->getName().str();
-        name << ".hpp";
-        headerName = name.str();
-        out = ofstream(headerName);
         out << "#include <cstdarg>" << endl << endl;
+        out << "#ifndef __TASKING_FUNCTION_MAP_GUARD__" <<  endl;
+        out << "#define __TASKING_FUNCTION_MAP_GUARD__" <<  endl;
+        out << "#include <map>" << endl;
+        out << "std::map<unsigned long, void (*)(int, ...)> tasking_function_map;" << endl;
+        out << "#endif" << endl << endl;
     }
 
     ~MyASTVisitor() {
-        out.close();
+        if (!generated_ids.empty()) {
+            out << "int setup_" << generated_ids[0] << "() {" << endl;
+            for (auto &id : generated_ids) {
+                out << "    tasking_function_map[" << id << "ull] = &x_" << id << ";" << endl;
+            }
+            out << "    return 1;" << endl << "}" << endl << endl;
+            out << "int tasking_setup = setup_" << generated_ids[0] << "();" << endl;
+
+            stringstream name;
+            name << "/tmp/tasking_functions/";
+            fs::create_directories(fs::path(name.str()));
+            name << TheRewriter.getSourceMgr().getFileEntryForID(TheRewriter.getSourceMgr().getMainFileID())->getName().str();
+            name << ".hpp";
+
+            ofstream file(name.str());
+            file << out.str();
+            file.close();
+        }
     }
 
     bool VisitOMPTaskDirective(OMPTaskDirective* task) {
@@ -71,12 +87,17 @@ public:
         this->needsHeader = true;
         this->handled_vars.clear();
 
-        TheRewriter.InsertTextBefore(task->getLocStart(), "//");
-        TheRewriter.InsertTextAfterToken(task->getLocEnd(), "\nTask t(1);\n");
+        stringstream hash_stream;
+        unsigned long hash_numeric = hasher(task->getLocStart().printToString(TheRewriter.getSourceMgr()));
+        hash_stream << hash_numeric;
+        string hash = hash_stream.str();
 
-        auto hash = hasher(task->getLocStart().printToString(TheRewriter.getSourceMgr()));
+        TheRewriter.InsertTextBefore(task->getLocStart(), "//");
+        TheRewriter.InsertTextAfterToken(task->getLocEnd(), "\nTask t(" + hash + "ull);\n");
+
         out << "void x_" << hash << " (int pseudo, ...) {" << endl;
-        out << "va_list args;" << endl << "va_start(args, pseudo);" << endl;
+        out << "    va_list args;" << endl;
+        out << "    va_start(args, pseudo);" << endl << endl;
 
         this->extractConditionClause<OMPIfClause>(*task, "if_clause");
         this->extractConditionClause<OMPFinalClause>(*task, "final");
@@ -156,8 +177,10 @@ public:
             source = "{ " + source + "; }";
         }
 
-        out << source;
+        out << "    " << source;
         out << endl << "}" << endl;
+
+        generated_ids.push_back(hash);
 
         //task->dump();
 
@@ -214,8 +237,8 @@ public:
             c += "\n\tt.vars.push_back(" + name + "_var);\n}\n";
             TheRewriter.InsertTextAfterToken(destination, c);
 
-            out << "void * " << name << "_pointer = va_arg(args, void *);" << endl;
-            out << type << " " << name << " = *((" << type << "*) " << name << "_pointer);" << endl;
+            out << "    void * " << name << "_pointer = va_arg(args, void *);" << endl;
+            out << "    " << type << " " << name << " = *((" << type << "*) " << name << "_pointer);" << endl;
             this->handled_vars.push_back(name);
         }
     }
