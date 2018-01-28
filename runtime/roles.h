@@ -28,7 +28,7 @@ class Worker {
 
 		Worker();
 
-		void task_wrapper_function(std::atomic<bool>& finish_flag, int* task_descr, int task_descr_length, int task_id);
+		void task_wrapper_function(WorkerTask& task);
 		void event_loop();
 
 };

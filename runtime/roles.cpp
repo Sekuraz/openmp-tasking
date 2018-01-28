@@ -37,9 +37,8 @@ Worker::Worker(){
 	MPI_Comm_rank(MPI_COMM_WORLD, &worker_rank);
 };
 
-void Worker::task_wrapper_function(atomic<bool> &finish_flag,
-	 	int* task_descr, int task_descr_length, int task_id){
-	printf("worker %d running task %d\n", worker_rank, task_id);
+void Worker::task_wrapper_function(WorkerTask& task){
+	printf("worker %d running task %d\n", worker_rank, task.task_id);
 	//sleep some time to do some "work"
 	//int sleep_time = (rand() / (float) RAND_MAX) * 1000;
 	int sleep_time = 1000;
@@ -58,9 +57,9 @@ void Worker::task_wrapper_function(atomic<bool> &finish_flag,
 	}
 	*/
 
-	printf("worker %d finished task %d\n", worker_rank, task_id);
+	printf("worker %d finished task %d\n", worker_rank, task.task_id);
 
-	finish_flag = true;
+	*(task.finish_flag) = true;
 }
 
 void Worker::event_loop(){
@@ -115,18 +114,17 @@ void Worker::event_loop(){
 				switch(tag){
 					case TAG_COMMAND:
 						{
-							printf("worker %d received COMMAND signal\n", worker_rank);
-							WorkerTask task;
+							//printf("worker %d received COMMAND signal\n", worker_rank);
+							running_tasks.emplace_back();
+							WorkerTask& task = running_tasks.back();
 							task.task_id = recv_buffer[0];
 							task.task_descr_length = recv_buffer_size -1;
 							task.task_descr = new int[task.task_descr_length];
 							copy(recv_buffer+1, recv_buffer+recv_buffer_size, task.task_descr);
 							task.finish_flag.reset(new atomic<bool>{false});
 							task.task_thread.reset(new thread(&Worker::task_wrapper_function,
-									 	this, std::ref(*(task.finish_flag)), task.task_descr,
-									 	task.task_descr_length, task.task_id));
-							printf("worker started task %d\n", task.task_id);
-							running_tasks.push_back(task);
+									 	this, std::ref(task)));
+							printf("worker %d started task %d\n", worker_rank, task.task_id);
 						}
 						break;
 					case TAG_QUIT:
@@ -142,7 +140,6 @@ void Worker::event_loop(){
 		}
 
 		//Check if other tasks have finished
-	
 		auto it = running_tasks.begin();
 		while(it != running_tasks.end()){
 			if(*(it->finish_flag) == true){
@@ -168,7 +165,7 @@ void main_thread::event_loop(){
 
 	//create some tasks here
 	//printf("main thread is creating a task\n");
-	for(int i = 0; i < 64; i++){
+	for(int i = 0; i < 12; i++){
 		int task_descr = 1;
 		create_task(&task_descr,1);
 	}
@@ -231,7 +228,7 @@ void re::event_loop(){
 				break;
 			case TAG_COMMAND:
 				// worker has finished a task
-				printf("re received a finished_task from worker %d\n", source);
+				printf("re received a finished_task %d from worker %d\n", recv_buffer[0], source);
 				free_workers++;
 				for(auto it = workers.begin(); it != workers.end(); it++){
 					if(it->node_id == source){
@@ -274,6 +271,8 @@ void re::event_loop(){
 		}
 
 		//check for termination:
+		printf("running_tasks = %d, queued_tasks = %d, main_waiting = %d\n",
+				running_tasks.size(), queued_tasks.size(), main_waiting);
 		if(running_tasks.size() == 0
 				&& queued_tasks.size() == 0
 				&& main_waiting){
