@@ -5,15 +5,21 @@
 
 using namespace std;
 
-void create_task(int* task_descr, int length){
-	MPI_Send(task_descr, length, MPI_INT, re_rank, TAG_CREATE, MPI_COMM_WORLD);	
+void create_task(int parent_id, int code_id){
+	int message_size = 2;
+	int* buffer = new int[message_size];
+	buffer[0] = parent_id;
+	buffer[1] = code_id;
+	MPI_Send(buffer, message_size, MPI_INT, re_rank, TAG_CREATE, MPI_COMM_WORLD);	
+	delete[](buffer);
 }
 
-void run_task(int task_id, int* task_descr, int length, int worker_id){
-	int* message = new int[length+1];
+void run_task(int task_id, int code_id,  int worker_id){
+	int message_size = 2;
+	int* message = new int[message_size];
 	message[0] = task_id;
-	copy(task_descr, task_descr + length, message+1);
-	MPI_Send(message, length+1, MPI_INT, worker_id, TAG_COMMAND, MPI_COMM_WORLD);
+	message[1] = code_id;
+	MPI_Send(message, message_size, MPI_INT, worker_id, TAG_COMMAND, MPI_COMM_WORLD);
 	delete[](message);
 }
 

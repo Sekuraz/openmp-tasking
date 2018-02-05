@@ -2,7 +2,7 @@ MPICXX = mpic++
 CXXFLAGS  = -Wall -g 
 LDFLAGS = -pthread
 
-OBJ = main.o roles.o functions.o
+OBJ = main.o functions.o re.o worker.o main_thread.o waittree.o
 
 tdomp: $(OBJ)
 	$(MPICXX) $(CXXFLAGS) -o tdomp  $(OBJ) $(LDFLAGS)

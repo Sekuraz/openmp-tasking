@@ -27,9 +27,13 @@ WorkerTask::WorkerTask(const WorkerTask& other){
 	copy(other.task_descr, other.task_descr + other.task_descr_length, task_descr);
 	task_descr_length = other.task_descr_length;
 	task_id = other.task_id;
-	//flat copy is intended here
+
+	//flat copies are intended here
 	finish_flag = other.finish_flag;
 	task_thread = other.task_thread;
+	cv = other.cv;
+	m = other.m;
+	continue_flag = other.continue_flag;
 }
 
 
@@ -38,7 +42,7 @@ Worker::Worker(){
 };
 
 void Worker::task_wrapper_function(WorkerTask& task){
-	printf("worker %d running task %d\n", worker_rank, task.task_id);
+	printf("worker %d running task %d with code_id %d\n", worker_rank, task.task_id, task.code_id);
 	//sleep some time to do some "work"
 	//int sleep_time = (rand() / (float) RAND_MAX) * 1000;
 	int sleep_time = 1000;
@@ -56,6 +60,11 @@ void Worker::task_wrapper_function(WorkerTask& task){
 		}
 	}
 	*/
+	/*if(task.code_id == 1){
+	 *
+	 * finish_task(parent_id);
+		create_task(task.task_id,0);
+	}*/
 
 	printf("worker %d finished task %d\n", worker_rank, task.task_id);
 
@@ -68,7 +77,7 @@ void Worker::event_loop(){
 
 	// Integer Flags for IRecv and IProbe
 	int recv_pending = 0; // is there something to receive (used as flag for MPI_Iprobe)
-  bool recv_running = false; // is there a Irecv currently running 
+	bool recv_running = false; // is there a Irecv currently running 
 
 	bool quit_loop = false;
 	capacity = 4;
@@ -118,13 +127,13 @@ void Worker::event_loop(){
 							running_tasks.emplace_back();
 							WorkerTask& task = running_tasks.back();
 							task.task_id = recv_buffer[0];
-							task.task_descr_length = recv_buffer_size -1;
-							task.task_descr = new int[task.task_descr_length];
-							copy(recv_buffer+1, recv_buffer+recv_buffer_size, task.task_descr);
+							task.code_id = recv_buffer[1];
 							task.finish_flag.reset(new atomic<bool>{false});
-							task.task_thread.reset(new thread(&Worker::task_wrapper_function,
+							task.task_thread.reset(new thread(
+										&Worker::task_wrapper_function,
 									 	this, std::ref(task)));
-							printf("worker %d started task %d\n", worker_rank, task.task_id);
+							printf("worker %d started task %d\n",
+									worker_rank, task.task_id);
 						}
 						break;
 					case TAG_QUIT:
@@ -132,7 +141,8 @@ void Worker::event_loop(){
 						quit_loop = true;
 						break;
 					default:
-						printf("worker %d received a message with the unknown tag: %d.\n", worker_rank, tag);
+						printf("worker %d received a message with the unknown tag: %d.\n",
+								worker_rank, tag);
 						break;
 				}
 				delete[](recv_buffer);
@@ -144,10 +154,10 @@ void Worker::event_loop(){
 		while(it != running_tasks.end()){
 			if(*(it->finish_flag) == true){
 				//task has finished
-				printf("worker %d is joining with task %d\n", worker_rank, it->task_id);
+				//printf("worker %d is joining with task %d\n", worker_rank, it->task_id);
 				it->task_thread->join();
 				finish_task(it->task_id);
-				printf("worker %d is joined with task %d\n", worker_rank, it->task_id);
+				//printf("worker %d is joined with task %d\n", worker_rank, it->task_id);
 				it = running_tasks.erase(it);
 			} else {
 			 	it++;

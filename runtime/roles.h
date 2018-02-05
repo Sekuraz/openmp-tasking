@@ -5,6 +5,8 @@
 #include <thread>
 #include <list>
 #include <memory>
+#include <condition_variable>
+#include <mutex>
 
 class WorkerTask {
 	public:
@@ -12,16 +14,20 @@ class WorkerTask {
 		~WorkerTask();
 		WorkerTask(const WorkerTask& other);
 		int task_id;
+		int code_id;
 		int* task_descr;
 		int task_descr_length;
 		std::shared_ptr<std::atomic<bool>> finish_flag;
 		std::shared_ptr<std::thread> task_thread;
+
+		//need for taskwait/allwait
+		std::shared_ptr<std::condition_variable> cv;
+		std::shared_ptr<std::atomic<bool>> continue_flag;
+		std::shared_ptr<std::mutex> m;
 };
 
 class Worker {
 	public:
-		std::vector<std::atomic<bool>> task_flags;
-		std::vector<std::thread> task_threads;
 		std::list<WorkerTask> running_tasks;
 		int worker_rank;
 		int capacity;
@@ -30,7 +36,6 @@ class Worker {
 
 		void task_wrapper_function(WorkerTask& task);
 		void event_loop();
-
 };
 
 namespace re {
