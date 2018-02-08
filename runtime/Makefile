@@ -1,8 +1,8 @@
 MPICXX = mpic++
-CXXFLAGS  = -Wall -g 
-LDFLAGS = -pthread
+CXXFLAGS = -Wall -g 
+LDFLAGS = -pthread 
 
-OBJ = main.o functions.o re.o worker.o main_thread.o waittree.o
+OBJ = main.o Runtime.o Worker.o RuntimeTask.o
 
 tdomp: $(OBJ)
 	$(MPICXX) $(CXXFLAGS) -o tdomp  $(OBJ) $(LDFLAGS)
@@ -10,4 +10,8 @@ tdomp: $(OBJ)
 #currently a dirty fix for header files. If a header is touched all files
 # are compiled again.
 %.o: %.cpp *.h
-	$(MPICXX) $(CXXFLAGS) -g -c $<
+	$(MPICXX) $(CXXFLAGS)  -c $<
+
+.PHONY: clean
+clean:
+	rm -rf tdomp $(OBJ)
