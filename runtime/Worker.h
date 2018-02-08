@@ -21,8 +21,9 @@ class WorkerTask {
 
 	public:
 
-	void handle_taskwait();
-	void handle_allwait();
+	void handle_taskwait(); //wrapper around handle_wait
+	void handle_allwait(); //wrapper around handle_wait
+	void handle_wait(int tag); //can handle waiting but with different tags
 	void handle_finish();
 	void handle_create(code_id_t code_id);
 	void handle_wakeup(); //called to continue the task

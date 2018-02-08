@@ -12,23 +12,16 @@
 using namespace std;
 
 void WorkerTask::handle_taskwait(){
-	if(worker == nullptr){
-		printf("error weak_ptr returned nullptr\n");
-	}
-	worker->add_to_waiting(task_id);
-	MPI_Send(&task_id, 1, MPI_INT, re_rank, TAG_WAITTASK, MPI_COMM_WORLD);
-	{
-		unique_lock<mutex> lk(m);
-		while(!continueable.load()){
-			cv.wait(lk);
-		}
-		continueable = false;
-	}
-	printf("task %d continues\n", task_id);
+	handle_wait(TAG_WAITTASK);
 }
 
 void WorkerTask::handle_allwait(){
-	MPI_Send(&task_id, 1, MPI_INT, re_rank, TAG_WAITALL, MPI_COMM_WORLD);
+	handle_wait(TAG_WAITALL);
+}
+
+void WorkerTask::handle_wait(int tag){
+	worker->add_to_waiting(task_id);
+	MPI_Send(&task_id, 1, MPI_INT, re_rank, tag, MPI_COMM_WORLD);
 	{
 		unique_lock<mutex> lk(m);
 		while(!continueable.load()){
@@ -52,13 +45,10 @@ void WorkerTask::handle_create(code_id_t code_id){
 }
 
 void WorkerTask::handle_wakeup(){
-	printf("trying to get the lock\n");
-	printf("continueable is %d\n", continueable.load());
 	continueable = true;
 	{
-		//lock_guard<mutex> lk(m);
-		printf("got the lock\n");
-		continueable.store(true);
+		lock_guard<mutex> lk(m);
+		continueable = true;
 	}	
 	printf("set the variable\n");
 	cv.notify_one();
@@ -75,6 +65,7 @@ void WorkerTask::run_task(){
 			for(int i = 0; i < 4; i++){
 				handle_create(1);
 			}
+			handle_allwait();
 			break;
 		case (1):
 			for(int i = 0; i < 4; i++){
