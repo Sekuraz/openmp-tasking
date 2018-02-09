@@ -45,12 +45,10 @@ void WorkerTask::handle_create(code_id_t code_id){
 }
 
 void WorkerTask::handle_wakeup(){
-	continueable = true;
 	{
 		lock_guard<mutex> lk(m);
 		continueable = true;
 	}	
-	printf("set the variable\n");
 	cv.notify_one();
 	printf("notified task %d to wake up\n", task_id);
 }
@@ -62,7 +60,7 @@ void WorkerTask::run_task(){
 
 	switch(code_id){
 		case (0):
-			for(int i = 0; i < 4; i++){
+			for(int i = 0; i < 1; i++){
 				handle_create(1);
 			}
 			handle_allwait();
@@ -72,6 +70,7 @@ void WorkerTask::run_task(){
 				handle_create(2);
 			}
 			handle_taskwait();
+			printf("taskwait wake up\n");
 			this_thread::sleep_for(chrono::seconds(1));
 			break;
 		case (2):
@@ -84,8 +83,6 @@ void WorkerTask::run_task(){
 //	finish_flag = true;
 	handle_finish();
 }
-
-
 
 void WorkerNode::setup(){
 
@@ -143,37 +140,10 @@ void WorkerNode::receive_message(){
 		}
 	}
 	
-	//check for completion of tasks
-	int free_capacity = 0;
-	auto it = tasks.begin();
-	while(it != tasks.end()){
-		//peerhaps can be optimized
-		if(it->second->finish_flag){
-			printf("worker %d joining with task %d \n", node_id, it->first);
-			it->second->task_thread.join();
-			free_capacity++;
-			printf("worker %d joined with task %d \n", node_id, it->first);
-			it = tasks.erase(it);
-		} else {
-			it++;
-		}
-	}
 
-	//TODO start suspended tasks
-	while(free_capacity > 0 && continueable_tasks.size() > 0){
-		auto task = continueable_tasks.front();
-		continueable_tasks.pop_front();
-		task->handle_wakeup();
-		free_capacity--;
-	}
-
-	if(!quit_loop && free_capacity != 0){
-		handle_free_capacity(free_capacity);
-	}
 }
 
 void WorkerNode::handle_shutdown(){
-	//TODO wegmachen?
 	printf("worker %d received shutdown\n", node_id);
 	quit_loop = true;
 };
@@ -182,8 +152,60 @@ void WorkerNode::event_loop(){
 	while(!quit_loop){
 		//printf("worker %d event loop\n", node_id);
 		receive_message();
+		//check for completion of tasks
+		//
+		//TODO
+		//here is a bug
+		//when a worker has no continuable tasks it frees up the capacity
+		//but it only continues waiting task directly after an other task finished.
+		//When no more new tasks are scheduled a task that has received a wakeup signal
+		//will not be continued.
+		int free_capacity = 0;
+		auto it = tasks.begin();
+		while(it != tasks.end()){
+			//peerhaps can be optimized
+			if(it->second->finish_flag){
+				printf("worker %d joining with task %d \n", node_id, it->first);
+				it->second->task_thread.join();
+				free_capacity++;
+				printf("worker %d joined with task %d \n", node_id, it->first);
+				it = tasks.erase(it);
+			} else {
+				it++;
+			}
+		}
+
+		
+		printf("capa = %d, free_capa = %d\n", capacity, free_capacity);
+		if (free_capacity == 0){
+			// this is a fix to continue tasks when no other tasks can finish.
+			while (capacity > default_capacity/2 && continueable_tasks.size() > 0){
+				auto task = continueable_tasks.front();
+				continueable_tasks.pop_front();
+				printf("derp1\n");
+				task->handle_wakeup();
+				free_capacity--;
+			}
+		} else {
+			//TODO start suspended tasks
+			printf("%d continueable tasks\n", continueable_tasks.size());
+			printf("free capacity is %d\n", free_capacity);
+			while(free_capacity > 0 && continueable_tasks.size() > 0){
+				auto task = continueable_tasks.front();
+				continueable_tasks.pop_front();
+				printf("derp2\n");
+				task->handle_wakeup();
+				free_capacity--;
+			}
+		}
+
+		//printf("derp\n");
+		if(!quit_loop && free_capacity != 0){
+			handle_free_capacity(free_capacity);
+			capacity += free_capacity;
+		}
 		//printf("Worker %d is sleeping\n", node_id);
-		this_thread::sleep_for(chrono::milliseconds(10));
+		this_thread::sleep_for(chrono::milliseconds(100));
 	}
 	printf("WorkerNode %d leaving event loop\n", node_id);
 }
@@ -216,18 +238,14 @@ void WorkerNode::handle_wakeup(std::shared_ptr<int> buffer, int length){
 	auto task = waiting_tasks[task_id];
 	waiting_tasks.erase(task_id);
 	continueable_tasks.push_back(task);
-	printf("worker %d received wakeup for task %d\n", node_id, task_id);
-	if (task == nullptr){
-		printf("nullptr\n");
-	} else {
-		printf("not nullptr\n");
-	}
-	task->continueable = true;
-	task->handle_wakeup();
 }
 
 void WorkerNode::add_to_waiting(task_id_t task_id){
 	lock_guard<mutex> lk(lock);
 	auto task = tasks[task_id];
 	waiting_tasks[task_id] = task;
+	// TODO remove dirty fix
+	// either continue a task or tell the runtime node that capacity is available
+	handle_free_capacity(1);
+	capacity++;
 }
