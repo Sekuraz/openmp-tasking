@@ -3,6 +3,8 @@
 - multiple res
 - load balancing between res
 - task dependencies
+- openMP in Tasks ausführen
+- 
 
 done:
 + worker capacity (multiple tasks per worker)
