@@ -27,6 +27,8 @@ class WorkerTask {
 	void handle_finish();
 	void handle_create(code_id_t code_id);
 	void handle_wakeup(); //called to continue the task
+	int claim_capacity(int desired);
+	void return_capacity(int claimed);
 
 	void run_task();
 	
@@ -37,6 +39,8 @@ class WorkerTask {
 	code_id_t code_id;
 	std::atomic<bool> finish_flag; 
 	std::thread task_thread;
+
+	bool started = false;
 
 	//needed for wakeup
 	std::condition_variable cv;
@@ -58,9 +62,12 @@ class WorkerNode {
 
 	std::mutex lock;
 	std::map<task_id_t, std::shared_ptr<WorkerTask>> waiting_tasks;
-	std::deque<std::shared_ptr<WorkerTask>> continueable_tasks;
+	std::deque<std::shared_ptr<WorkerTask>> runnable_tasks;
 
-	int capacity = default_capacity;
+	std::atomic<int> capacity;
+	// the capacity that was freed by suspending
+	// This gets dumped into the regular capacity in the event loop
+	std::atomic<int> waiting_capacity; 
 
 	void setup();
 
@@ -98,8 +105,6 @@ class WorkerNode {
 	int recv_buffer_size;
 	MPI_Status status;
 	MPI_Request request;
-	
-	
 };
 
 #endif

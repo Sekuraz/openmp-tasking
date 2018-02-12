@@ -1,5 +1,5 @@
 MPICXX = mpic++
-CXXFLAGS = -Wall -g 
+CXXFLAGS = -Wall -g -fopenmp
 LDFLAGS = -pthread 
 
 OBJ = main.o Runtime.o Worker.o RuntimeTask.o
