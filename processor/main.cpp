@@ -4,8 +4,6 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
-#include <sstream>
-#include <cstdarg>
 #include <experimental/filesystem>
 
 #include "clang/AST/ASTConsumer.h"
@@ -23,8 +21,6 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "tasking.h"
-
 
 using namespace clang;
 using namespace std;
@@ -37,7 +33,6 @@ class MyASTVisitor : public RecursiveASTVisitor<MyASTVisitor>
 {
 public:
     bool needsHeader;
-    string headerName;
 
 private:
     Rewriter &TheRewriter;
@@ -45,18 +40,22 @@ private:
     vector<string> generated_ids;
     hash<string> hasher;
     stringstream out;
-
-
+    string FileName;
 
 public:
     MyASTVisitor(Rewriter &R)
-        : TheRewriter(R), needsHeader(false)
+        : TheRewriter(R), needsHeader(false),
+          FileName(R.getSourceMgr().getFileEntryForID(R.getSourceMgr().getMainFileID())->getName().str())
     {
-        out << "#include <cstdarg>" << endl << endl;
+        string f(FileName);
+        std::replace(f.begin(), f.end(), '.', '_');
+
+        out << "#ifndef __" << f << "__" << endl;
+        out << "#define __" << f << "__" << endl;
         out << "#ifndef __TASKING_FUNCTION_MAP_GUARD__" <<  endl;
         out << "#define __TASKING_FUNCTION_MAP_GUARD__" <<  endl;
         out << "#include <map>" << endl;
-        out << "std::map<unsigned long, void (*)(int, ...)> tasking_function_map;" << endl;
+        out << "std::map<unsigned long, void (*)(void **)> tasking_function_map;" << endl;
         out << "#endif" << endl << endl;
     }
 
@@ -72,12 +71,20 @@ public:
             stringstream name;
             name << "/tmp/tasking_functions/";
             fs::create_directories(fs::path(name.str()));
-            name << TheRewriter.getSourceMgr().getFileEntryForID(TheRewriter.getSourceMgr().getMainFileID())->getName().str();
+            name << FileName;
             name << ".hpp";
+
+            out << "#endif" << endl;
 
             ofstream file(name.str());
             file << out.str();
             file.close();
+
+            ofstream all("/tmp/tasking_functions/all.hpp");
+            all << "#include \"";
+            all << FileName;
+            all << ".hpp\"";
+            all << endl;
         }
     }
 
@@ -88,16 +95,14 @@ public:
         this->handled_vars.clear();
 
         stringstream hash_stream;
-        unsigned long hash_numeric = hasher(task->getLocStart().printToString(TheRewriter.getSourceMgr()));
+        unsigned long long hash_numeric = hasher(task->getLocStart().printToString(TheRewriter.getSourceMgr()));
         hash_stream << hash_numeric;
         string hash = hash_stream.str();
 
         TheRewriter.InsertTextBefore(task->getLocStart(), "//");
         TheRewriter.InsertTextAfterToken(task->getLocEnd(), "\nTask t(" + hash + "ull);\n");
 
-        out << "void x_" << hash << " (int pseudo, ...) {" << endl;
-        out << "    va_list args;" << endl;
-        out << "    va_start(args, pseudo);" << endl << endl;
+        out << "void x_" << hash << " (void* arguments[]) {" << endl;
 
         this->extractConditionClause<OMPIfClause>(*task, "if_clause");
         this->extractConditionClause<OMPFinalClause>(*task, "final");
@@ -172,6 +177,7 @@ public:
         }
 
         auto source = this->getSourceCode(*code);
+        TheRewriter.ReplaceText(code->getLocStart(), (unsigned int) source.length(), "t.schedule();");
 
         if (source.back() != '}') { // single line
             source = "{ " + source + "; }";
@@ -204,15 +210,16 @@ public:
     void extractAccessClause(const OMPTaskDirective& task, const string& access_name) {
          if (task.hasClausesOfKind<ClauseType>()) {
 
-            auto clause = task.getSingleClause<ClauseType>();
-            for (auto &&pc : clause->varlists()) {
-                if (isa<DeclRefExpr>(pc)) {
-                    auto expr = cast<DeclRefExpr>(pc);
-                    this->insertVarCapture(*expr->getDecl(), task.getLocEnd(), access_name);
-                } else {
-                    llvm::errs() << "don't know how to handle a non DeclRef in a " + access_name + " clause, exiting.";
-                    llvm::errs().flush();
-                    exit(1);
+            for (auto && clause : task.getClausesOfKind<ClauseType>()) {
+                for (auto &&pc : clause->varlists()) {
+                    if (isa<DeclRefExpr>(pc)) {
+                        auto expr = cast<DeclRefExpr>(pc);
+                        this->insertVarCapture(*expr->getDecl(), task.getLocEnd(), access_name);
+                    } else {
+                        llvm::errs() << "don't know how to handle a non DeclRef in a " + access_name + " clause, exiting.";
+                        llvm::errs().flush();
+                        exit(1);
+                    }
                 }
             }
         }
@@ -232,17 +239,82 @@ public:
 
         string name = var.getName().str(), type = var.getType().getAsString();
 
-        if (find(this->handled_vars.begin(), this->handled_vars.end(), name) == this->handled_vars.end()) {
-            string c = "{\n\tVar " + name + "_var = {\"" + name + "\", &" + name + ", at_" + access_name + "};";
-            c += "\n\tt.vars.push_back(" + name + "_var);\n}\n";
-            TheRewriter.InsertTextAfterToken(destination, c);
+        auto canon = var.getType().getCanonicalType();
+        int layers = 0;
 
-            out << "    void * " << name << "_pointer = va_arg(args, void *);" << endl;
-            out << "    " << type << " " << name << " = *((" << type << "*) " << name << "_pointer);" << endl;
+        while (isa<PointerType>(canon)) {
+            auto t = cast<PointerType>(canon);
+            canon = t->getPointeeType();
+            layers++;
+        }
+
+        if (find(this->handled_vars.begin(), this->handled_vars.end(), name) == this->handled_vars.end()) {
+            stringstream c;
+            c << "{\n\tVar " << name << "_var = {\"" << name << "\", ";
+
+            c << "&(";
+            for (int i = 0; i < layers; i++) {
+                c << "*";
+            }
+            c << name << "), at_" << access_name << ", " << getVarSize(var) << "};";
+            c << "\n\tt.vars.push_back(" << name << "_var);\n}\n";
+            TheRewriter.InsertTextAfterToken(destination, c.str());
+
+            out << "    void * " << name << "_pointer_" << layers <<" = arguments[" << this->handled_vars.size() << "];" << endl;
+
+
+            for (; layers > 0; layers--)
+            {
+                out << "    void * " << name << "_pointer_" << layers - 1 << " = &(";
+                out << name << "_pointer_" << layers << ");" << endl;
+            }
+            out << "    " << type << " " << name << " = *((" << type << "*) " << name << "_pointer_0);" << endl;
             this->handled_vars.push_back(name);
         }
     }
+
+    size_t getVarSize(const ValueDecl& var) {
+        auto t = var.getType();
+
+        if (isa<BuiltinType>(t)) {
+            return var.getASTContext().getTypeInfo(var.getType()).Width / 8;
+        }
+        else if (isa<PointerType>(t)) {
+            auto pt = cast<PointerType>(t);
+            return var.getASTContext().getTypeInfo(pt->getPointeeOrArrayElementType()).Width / 8;
+        }
+        else if (isa<DecayedType>(t)) {
+            auto dt = cast<DecayedType>(t);
+            auto source = dt->getOriginalType();
+            if (isa<ConstantArrayType>(source)) {
+                auto array = cast<ConstantArrayType>(source);
+                auto size = array->getSize().getLimitedValue();
+                if (size == UINT64_MAX) {
+                    array->dump();
+                    llvm::errs() << "The array is most likely larger than the supported RAM for a 64 bit machine.";
+                    llvm::errs().flush();
+                    exit(1);
+                }
+
+                return var.getASTContext().getTypeInfo(array->getElementType()).Width / 8 * size;
+            }
+            else {
+                // TODO Documentation
+                llvm::errs() << "Passing pointers is not supported.";
+                llvm::errs().flush();
+                exit(1);
+            }
+        }
+        else {
+            var.getType().dump();
+            // TODO Documentation
+            llvm::errs() << "Unknown size of the type above.";
+            llvm::errs().flush();
+            exit(1);
+        }
+    }
 };
+
 
 
 // Implementation of the ASTConsumer interface for reading an AST produced
@@ -324,11 +396,15 @@ int main(int argc, const char *argv[]) {
     // Set the main file handled by the source manager to the input file.
     const FileEntry *FileIn;
 
-    if (argc == 2) {
+    if (argc == 2 && !hasInvocation) {
         FileIn = FileMgr.getFile(argv[1]);
-
     } else {
-        FileIn = FileMgr.getFile("test.cpp");
+        if (TheCompInst.getInvocation().getFrontendOpts().Inputs.empty()) {
+            FileIn = FileMgr.getFile("test.cpp");
+        }
+        else {
+            FileIn = FileMgr.getFile(TheCompInst.getInvocation().getFrontendOpts().Inputs[0].getFile());
+        }
     }
 
     FileID file = SourceMgr.getOrCreateFileID(FileIn, clang::SrcMgr::CharacteristicKind::C_User);
@@ -353,12 +429,13 @@ int main(int argc, const char *argv[]) {
         if (in) {
             stringstream ss;
             ss << in.rdbuf();
-            llvm::outs() << ss.str();
+                llvm::outs() << ss.str();
             in.close();
         }
     }
 
     const RewriteBuffer *RewriteBuf = TheRewriter.getRewriteBufferFor(SourceMgr.getMainFileID());
+
     llvm::outs() << string(RewriteBuf->begin(), RewriteBuf->end());
 
     return 0;

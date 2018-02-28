@@ -8,22 +8,33 @@
 #include <vector>
 #include <string>
 
+#include "/tmp/tasking_functions/all.hpp"
+
 enum access_type {at_shared, at_firstprivate, at_private, at_default};
 
 struct Var {
     std::string name;
     void * pointer;
     access_type access;
+    size_t size;
 };
 
 class Task {
 public:
-    Task(int code_id)
+    Task(unsigned long long code_id)
             : code_id(code_id), if_clause(true), final(false), untied(false), shared_by_default(true), mergeable(true),
               priority(0)
     {}
 
-    int code_id;
+    void schedule() {
+        void * arguments[this->vars.size()];
+        for (int i = 0; i < vars.size(); i++) {
+            arguments[i] = vars[i].pointer;
+        }
+        tasking_function_map[code_id](arguments);
+    }
+
+    unsigned long long code_id;
 
     bool if_clause; // if false, parent may not continue until this is finished
     bool final; // if true: sequential, also for children
