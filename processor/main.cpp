@@ -80,7 +80,7 @@ public:
             file << out.str();
             file.close();
 
-            ofstream all("/tmp/tasking_functions/all.hpp");
+            ofstream all("/tmp/tasking_functions/all.hpp", ofstream::app);
             all << "#include \"";
             all << FileName;
             all << ".hpp\"";
