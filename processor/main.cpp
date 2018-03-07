@@ -33,9 +33,9 @@ class MyASTVisitor : public RecursiveASTVisitor<MyASTVisitor>
 {
 public:
     bool needsHeader;
+    Rewriter &TheRewriter;
 
 private:
-    Rewriter &TheRewriter;
     vector<string> handled_vars;
     vector<string> generated_ids;
     hash<string> hasher;
@@ -374,11 +374,12 @@ public:
             // Traverse the declaration using our AST visitor.
             Visitor.TraverseDecl(b);
         }
-        this->needsHeader = Visitor.needsHeader;
+        if (Visitor.needsHeader) {
+            Visitor.TheRewriter.InsertTextBefore((*DR.begin())->getLocStart(),
+                                                 "#include \"" + fs::current_path().string() + "/processor/tasking.h\"\n");
+        }
         return true;
     }
-
-    bool needsHeader;
 
 private:
     MyASTVisitor Visitor;
@@ -464,16 +465,6 @@ int main(int argc, const char *argv[]) {
 
     llvm::errs().flush();
     llvm::outs().flush();
-
-    if (TheConsumer.needsHeader) {
-        ifstream in("processor/tasking.h", std::ios::in );
-        if (in) {
-            stringstream ss;
-            ss << in.rdbuf();
-                llvm::outs() << ss.str();
-            in.close();
-        }
-    }
 
     const RewriteBuffer *RewriteBuf = TheRewriter.getRewriteBufferFor(SourceMgr.getMainFileID());
 
