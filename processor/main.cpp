@@ -88,6 +88,36 @@ public:
         }
     }
 
+    bool VisitFunctionDecl(FunctionDecl *f) {
+        if (f->isMain() && f->hasBody()) {
+            auto body = cast<CompoundStmt>(f->getBody());
+            TheRewriter.InsertTextBefore(body->body_front()->getLocStart(), "setup_tasking();\n");
+            if (isa<ReturnStmt>(body->body_back())) {
+                TheRewriter.InsertTextBefore(body->body_back()->getLocStart(), "teardown_tasking();\n");
+            }
+            else {
+                llvm::errs() << "There might be a problem with the teardown mechanic in '" << this->FileName;
+                llvm::errs() << "'. No return statement found at the end of main().";
+
+                auto end = Lexer::getLocForEndOfToken(body->body_back()->getLocEnd(), 0, TheRewriter.getSourceMgr(),
+                                                      TheRewriter.getLangOpts());
+
+                TheRewriter.InsertTextAfter(end, "teardown_tasking();\n");
+            }
+
+            this->needsHeader = true;
+        }
+
+        return true;
+    }
+
+//    bool VisitOMPTaskwaitDirective(OMPTaskwaitDirective* taskwait) {
+//        TheRewriter.InsertTextBefore(taskwait->getLocStart(), "//");
+//        TheRewriter.InsertTextAfterToken(taskwait->getLocEnd(), "\nglobal_task.taskwait();\n");
+//
+//        return true;
+//    }
+
     bool VisitOMPTaskDirective(OMPTaskDirective* task) {
         auto *code = task->getCapturedStmt(task->getDirectiveKind());
 
@@ -188,9 +218,7 @@ public:
 
         generated_ids.push_back(hash);
 
-        //task->dump();
-
-        return true; // Is true correct?
+        return true;
     }
 
     template<typename ClauseType>
@@ -280,8 +308,9 @@ public:
             return var.getASTContext().getTypeInfo(var.getType()).Width / 8;
         }
         else if (isa<PointerType>(t)) {
-            auto pt = cast<PointerType>(t);
-            return var.getASTContext().getTypeInfo(pt->getPointeeOrArrayElementType()).Width / 8;
+//            auto pt = cast<PointerType>(t);
+//            return var.getASTContext().getTypeInfo(pt->getPointeeOrArrayElementType()).Width / 8;
+            return 0; // let the runtime decide
         }
         else if (isa<DecayedType>(t)) {
             auto dt = cast<DecayedType>(t);
@@ -305,12 +334,24 @@ public:
                 exit(1);
             }
         }
+        else if (isa<ConstantArrayType>(t)) {
+            auto array = cast<ConstantArrayType>(t);
+            auto size = array->getSize().getLimitedValue();
+            if (size == UINT64_MAX) {
+                array->dump();
+                llvm::errs() << "The array is most likely larger than the supported RAM for a 64 bit machine.";
+                llvm::errs().flush();
+                exit(1);
+            }
+
+            return var.getASTContext().getTypeInfo(array->getElementType()).Width / 8 * size;
+        }
         else {
             var.getType().dump();
             // TODO Documentation
             llvm::errs() << "Unknown size of the type above.";
             llvm::errs().flush();
-            exit(1);
+            return 0; // let the runtime decide
         }
     }
 };
