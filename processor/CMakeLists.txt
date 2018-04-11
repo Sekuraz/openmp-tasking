@@ -3,10 +3,10 @@ project(processor)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(processor main.cpp tasking.h)
+add_executable(processor main.cpp ExtractorVisitor.cpp RewriterVisitor.cpp RewriterVisitor.h)
 
 target_link_libraries(processor stdc++ clangFrontendTool clangFrontend clangDriver clangSerialization clangCodeGen
         clangParse clangSema clangStaticAnalyzerFrontend clangStaticAnalyzerCheckers clangStaticAnalyzerCore
-        clangAnalysis clangARCMigrate clangRewrite clangEdit clangAST clangLex clangBasic LLVM-5.0
+        clangAnalysis clangARCMigrate clangRewrite clangEdit clangAST clangLex clangBasic LLVM
         stdc++fs
 )
