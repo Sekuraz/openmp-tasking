@@ -18,7 +18,7 @@ namespace fs = std::experimental::filesystem;
 
 ExtractorVisitor::ExtractorVisitor(Rewriter &R)
     : TheRewriter(R), needsHeader(false),
-      FileName(R.getSourceMgr().getFileEntryForID(R.getSourceMgr().getMainFileID())->getName().str())
+      FileName(fs::path(R.getSourceMgr().getFileEntryForID(R.getSourceMgr().getMainFileID())->getName().str()).filename())
 {
     string f(FileName);
     std::replace(f.begin(), f.end(), '.', '_');
@@ -33,6 +33,7 @@ ExtractorVisitor::ExtractorVisitor(Rewriter &R)
 }
 
 ExtractorVisitor::~ExtractorVisitor() {
+    llvm::outs() << "hello";
     if (!generated_ids.empty()) {
         out << "int setup_" << generated_ids[0] << "() {" << endl;
         for (auto &id : generated_ids) {
@@ -196,6 +197,8 @@ void ExtractorVisitor::extractConditionClause(const OMPTaskDirective& task, cons
 
         auto source = this->getSourceCode(*cond);
 
+        llvm::outs() << source;
+
         TheRewriter.InsertTextAfterToken(task.getLocEnd(), "t." + property_name + " = (" + source + ");\n");
     }
 }
@@ -223,10 +226,9 @@ string ExtractorVisitor::getSourceCode(const Stmt& stmt) {
     auto sr = stmt.getSourceRange();
     sr.setEnd(Lexer::getLocForEndOfToken(sr.getEnd(), 0, TheRewriter.getSourceMgr(), TheRewriter.getLangOpts()));
 
-    auto source = Lexer::getSourceText(CharSourceRange::getCharRange(sr), TheRewriter.getSourceMgr(),
-                                       TheRewriter.getLangOpts());
+    auto source = TheRewriter.getRewrittenText(sr);
 
-    return source.str();
+    return source;
 }
 
 void ExtractorVisitor::insertVarCapture(const ValueDecl& var, const SourceLocation& destination, const string& access_name) {

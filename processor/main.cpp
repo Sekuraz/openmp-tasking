@@ -15,6 +15,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "ExtractorVisitor.h"
+#include "RewriterVisitor.h"
 
 using namespace clang;
 using namespace std;
@@ -28,7 +29,7 @@ class MyASTConsumer : public ASTConsumer
 {
 public:
     MyASTConsumer(Rewriter &R)
-        : Visitor(R)
+        : rewriter(R), extractor(R)
     {}
 
     // Override the method that gets called for each parsed top-level
@@ -36,17 +37,20 @@ public:
     virtual bool HandleTopLevelDecl(DeclGroupRef DR) {
         for (auto && b: DR) {
             // Traverse the declaration using our AST visitor.
-            Visitor.TraverseDecl(b);
+            rewriter.TraverseDecl(b);
+            extractor.TraverseDecl(b);
+
         }
-        if (Visitor.needsHeader) {
-            Visitor.TheRewriter.InsertTextBefore((*DR.begin())->getLocStart(),
+        if (rewriter.needsHeader || extractor.needsHeader) {
+            extractor.TheRewriter.InsertTextBefore((*DR.begin())->getLocStart(),
                                                  "#include \"" + fs::current_path().string() + "/processor/tasking.h\"\n");
         }
         return true;
     }
 
 private:
-    ExtractorVisitor Visitor;
+    RewriterVisitor rewriter;
+    ExtractorVisitor extractor;
 };
 
 

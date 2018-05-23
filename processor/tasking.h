@@ -18,6 +18,7 @@
 void setup_tasking() {};
 void teardown_tasking() {};
 
+void taskwait() {};
 
 // get the number of bytes which should be transmitted to the other node for the given pointer
 size_t get_allocated_size(void* pointer) {
