@@ -40,7 +40,7 @@ ExtractorVisitor::~ExtractorVisitor() {
             out << "    tasking_function_map[" << id << "ull] = &x_" << id << ";" << endl;
         }
         out << "    return 1;" << endl << "}" << endl << endl;
-        out << "int tasking_setup = setup_" << generated_ids[0] << "();" << endl;
+        out << "int tasking_setup_" << generated_ids[0] << " = setup_" << generated_ids[0] << "();" << endl;
 
         stringstream name;
         name << "/tmp/tasking_functions/";
