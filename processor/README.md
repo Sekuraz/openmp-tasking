@@ -15,3 +15,11 @@ This might also be handy if you want to integrate this preprocessor into your bu
 
 If there is only one parameter, this is the file to be processed, otherwise the filename is taken from the clang parameters.
 If there is no file given in those parameters we default to a file called `test.cpp`
+
+# Issues
+## `main` function
+The main function has to contain a multi statement body, otherwise setup and teardown mechanics can not be added.
+It also should contain a return statement for the same purpose.
+## Return statement
+There should not be any code in the line of the `return` statement of the main method. 
+The teardown handler is inserted before the `return` statement.

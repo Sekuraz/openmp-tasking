@@ -34,7 +34,7 @@ ExtractorVisitor::ExtractorVisitor(Rewriter &R)
 }
 
 ExtractorVisitor::~ExtractorVisitor() {
-    llvm::outs() << "hello";
+    // only write to disk if there is something to be written
     if (!generated_ids.empty()) {
         out << "int setup_" << generated_ids[0] << "() {" << endl;
         for (auto &id : generated_ids) {
@@ -65,6 +65,7 @@ ExtractorVisitor::~ExtractorVisitor() {
 
 bool ExtractorVisitor::VisitFunctionDecl(FunctionDecl *f) {
     if (f->isMain() && f->hasBody()) {
+        // We assume that there is more than one statement in the body
         auto body = cast<CompoundStmt>(f->getBody());
         TheRewriter.InsertTextBefore(body->body_front()->getLocStart(), "setup_tasking();\n");
         if (isa<ReturnStmt>(body->body_back())) {
@@ -92,6 +93,7 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
     this->needsHeader = true;
     this->handled_vars.clear();
 
+    // This is also the code id of the task
     stringstream hash_stream;
     unsigned long long hash_numeric = hasher(task->getLocStart().printToString(TheRewriter.getSourceMgr()));
     hash_stream << hash_numeric;
@@ -100,6 +102,7 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
     TheRewriter.InsertTextBefore(task->getLocStart(), "//");
     TheRewriter.InsertTextAfterToken(task->getLocEnd(), "\nTask t(" + hash + "ull);\n");
 
+    // start the function which is executed remotely
     out << "void x_" << hash << " (void* arguments[]) {" << endl;
 
     this->extractConditionClause<OMPIfClause>(*task, "if_clause");
@@ -174,6 +177,7 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
         this->insertVarCapture(*var.getCapturedVar(), task->getLocEnd(), "default");
     }
 
+    // replace the source code of the task with a call to the schedule function of the generated task struct
     auto source = this->getSourceCode(*code);
     TheRewriter.ReplaceText(code->getLocStart(), (unsigned int) source.length(), "t.schedule();");
 
@@ -181,6 +185,7 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
         source = "{ " + source + "; }";
     }
 
+    // variable unpacking is done by the insertVarCapture function
     out << "    " << source;
     out << endl << "}" << endl;
 
@@ -246,16 +251,16 @@ void ExtractorVisitor::insertVarCapture(const ValueDecl& var, const SourceLocati
     }
 
     if (find(this->handled_vars.begin(), this->handled_vars.end(), name) == this->handled_vars.end()) {
-        stringstream c;
-        c << "{\n\tVar " << name << "_var = {\"" << name << "\", ";
+        stringstream capture;
+        capture << "{\n\tVar " << name << "_var = {\"" << name << "\", ";
 
-        c << "&(";
+        capture << "&(";
         for (int i = 0; i < layers; i++) {
-            c << "*";
+            capture << "*";
         }
-        c << name << "), at_" << access_type << ", " << getVarSize(var) << "};";
-        c << "\n\tt.vars.push_back(" << name << "_var);\n}\n";
-        TheRewriter.InsertTextAfterToken(destination, c.str());
+        capture << name << "), at_" << access_type << ", " << getVarSize(var) << "};";
+        capture << "\n\tt.vars.push_back(" << name << "_var);\n}\n";
+        TheRewriter.InsertTextAfterToken(destination, capture.str());
 
         out << "    void * " << name << "_pointer_" << layers <<" = arguments[" << this->handled_vars.size() << "];" << endl;
 
@@ -270,56 +275,54 @@ void ExtractorVisitor::insertVarCapture(const ValueDecl& var, const SourceLocati
     }
 }
 
+size_t getArraySize(QualType type) {
+    auto array = cast<ConstantArrayType>(t);
+    auto size = array->getSize().getLimitedValue();
+
+    return var.getASTContext().getTypeInfo(array->getElementType()).Width / 8 * size;
+}
+
 size_t ExtractorVisitor::getVarSize(const ValueDecl& var) {
     auto t = var.getType();
 
+    size_t return_value = 0; // the runtime decides
+
     if (isa<BuiltinType>(t)) {
-        return var.getASTContext().getTypeInfo(t).Width / 8;
+        return_value = var.getASTContext().getTypeInfo(t).Width / 8;
     }
     else if (isa<PointerType>(t)) {
-//            auto pt = cast<PointerType>(t);
-//            return var.getASTContext().getTypeInfo(pt->getPointeeOrArrayElementType()).Width / 8;
-        return 0; // let the runtime decide
+        // This might also be a pointer into an array defined in another compilation unit, then the calculation would be wrong
+//        auto pt = cast<PointerType>(t);
+//        return_value = var.getASTContext().getTypeInfo(pt->getPointeeOrArrayElementType()).Width / 8;
     }
     else if (isa<DecayedType>(t)) {
+        // If we know that it is a pointer to an array
         auto dt = cast<DecayedType>(t);
         auto source = dt->getOriginalType();
         if (isa<ConstantArrayType>(source)) {
-            auto array = cast<ConstantArrayType>(source);
-            auto size = array->getSize().getLimitedValue();
-            if (size == UINT64_MAX) {
-                array->dump();
-                llvm::errs() << "The array is most likely larger than the supported RAM for a 64 bit machine.";
-                llvm::errs().flush();
-                exit(1);
-            }
-
-            return var.getASTContext().getTypeInfo(array->getElementType()).Width / 8 * size;
+            return_value = getArraySize(t);
         }
         else {
-            // TODO Documentation
+            // This should be unreachable because a decayed pointer which is only a pointer doesn't make any sense
             llvm::errs() << "Passing pointers is not supported.";
             llvm::errs().flush();
             exit(1);
         }
     }
     else if (isa<ConstantArrayType>(t)) {
-        auto array = cast<ConstantArrayType>(t);
-        auto size = array->getSize().getLimitedValue();
-        if (size == UINT64_MAX) {
-            array->dump();
-            llvm::errs() << "The array is most likely larger than the supported RAM for a 64 bit machine.";
-            llvm::errs().flush();
-            exit(1);
-        }
-
-        return var.getASTContext().getTypeInfo(array->getElementType()).Width / 8 * size;
+        return_value = getArraySize(t);
     }
     else {
+        // Missing detailed implementation, warn about it
         t.dump();
-        // TODO Documentation
         llvm::errs() << "Unknown size of the type above.";
         llvm::errs().flush();
-        return 0; // let the runtime decide
+    }
+
+    if (return_value >= UINT64_MAX / 2) {
+        array->dump();
+        llvm::errs() << "The array is most likely larger than the supported RAM for a 64 bit machine.";
+        llvm::errs().flush();
+        exit(1);
     }
 }
