@@ -21,10 +21,9 @@ using namespace clang;
 using namespace std;
 namespace fs = std::experimental::filesystem;
 
-
-
-// Implementation of the ASTConsumer interface for reading an AST produced
-// by the Clang parser.
+/**
+ * This class handles traversing the compilation unit by calling the Visitors
+ */
 class MyASTConsumer : public ASTConsumer
 {
 public:
@@ -55,16 +54,7 @@ private:
 
 
 int main(int argc, const char *argv[]) {
-    /*
-    if (argc > 2) {
-        llvm::errs() << "Usage: rewritersample <filename>\n";
-        llvm::errs() << "Default: filename = '/tmp/t.cpp'\n";
-        return 1;
-    }
-     */
 
-    // CompilerInstance will hold the instance of the Clang compiler for us,
-    // managing the various objects needed to run the compiler.
     CompilerInstance TheCompInst;
     TheCompInst.createDiagnostics();
 

@@ -16,6 +16,7 @@ using namespace clang;
 using namespace std;
 namespace fs = std::experimental::filesystem;
 
+
 ExtractorVisitor::ExtractorVisitor(Rewriter &R)
     : TheRewriter(R), needsHeader(false),
       FileName(fs::path(R.getSourceMgr().getFileEntryForID(R.getSourceMgr().getMainFileID())->getName().str()).filename())
@@ -231,7 +232,7 @@ string ExtractorVisitor::getSourceCode(const Stmt& stmt) {
     return source;
 }
 
-void ExtractorVisitor::insertVarCapture(const ValueDecl& var, const SourceLocation& destination, const string& access_name) {
+void ExtractorVisitor::insertVarCapture(const ValueDecl& var, const SourceLocation& destination, const string& access_type) {
 
     string name = var.getName().str(), type = var.getType().getAsString();
 
@@ -252,7 +253,7 @@ void ExtractorVisitor::insertVarCapture(const ValueDecl& var, const SourceLocati
         for (int i = 0; i < layers; i++) {
             c << "*";
         }
-        c << name << "), at_" << access_name << ", " << getVarSize(var) << "};";
+        c << name << "), at_" << access_type << ", " << getVarSize(var) << "};";
         c << "\n\tt.vars.push_back(" << name << "_var);\n}\n";
         TheRewriter.InsertTextAfterToken(destination, c.str());
 
@@ -273,7 +274,7 @@ size_t ExtractorVisitor::getVarSize(const ValueDecl& var) {
     auto t = var.getType();
 
     if (isa<BuiltinType>(t)) {
-        return var.getASTContext().getTypeInfo(var.getType()).Width / 8;
+        return var.getASTContext().getTypeInfo(t).Width / 8;
     }
     else if (isa<PointerType>(t)) {
 //            auto pt = cast<PointerType>(t);
@@ -315,7 +316,7 @@ size_t ExtractorVisitor::getVarSize(const ValueDecl& var) {
         return var.getASTContext().getTypeInfo(array->getElementType()).Width / 8 * size;
     }
     else {
-        var.getType().dump();
+        t.dump();
         // TODO Documentation
         llvm::errs() << "Unknown size of the type above.";
         llvm::errs().flush();
