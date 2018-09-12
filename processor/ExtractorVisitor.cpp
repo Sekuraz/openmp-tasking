@@ -275,6 +275,11 @@ void ExtractorVisitor::insertVarCapture(const ValueDecl& var, const SourceLocati
     }
 }
 
+/**
+ * Helper function for getVarSize
+ * @param type A type which can be casted to a ConstantArrayType
+ * @return the size of the array
+ */
 size_t getArraySize(QualType type) {
     auto array = cast<ConstantArrayType>(t);
     auto size = array->getSize().getLimitedValue();
