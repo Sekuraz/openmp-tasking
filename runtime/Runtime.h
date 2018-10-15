@@ -59,8 +59,8 @@ class RuntimeNode {
 	void handle_free_capacity(std::shared_ptr<int> buffer, int length, node_id_t source);
 	//this is called when something needs to be done
 	void handle_run_task(); // finds the next task to be executed and a fitting
-							// node to run it on
-							//
+							// node to run it oo
+
 	// receives a message and calls the corresponding handle
 	void receive_message();
 
