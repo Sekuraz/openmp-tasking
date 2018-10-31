@@ -5,5 +5,3 @@
 *.swp
 *.o
 cmake-*
-
-deps
