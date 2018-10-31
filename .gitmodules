@@ -1,3 +1,6 @@
 [submodule "bots"]
 	path = samples/barcelona-test-suite
 	url = https://github.com/bsc-pm/bots.git
+[submodule "deps/clang"]
+	path = deps/clang
+	url = https://github.com/llvm-mirror/clang.git
