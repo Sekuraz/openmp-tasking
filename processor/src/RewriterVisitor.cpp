@@ -4,6 +4,11 @@
 
 #include "RewriterVisitor.h"
 
+#include "clang/Lex/Lexer.h"
+
+
+using namespace clang;
+
 bool RewriterVisitor::VisitOMPTaskwaitDirective(clang::OMPTaskwaitDirective *taskwait) {
     TheRewriter.InsertTextBefore(taskwait->getLocStart(), "//");
     TheRewriter.InsertTextAfter(taskwait->getLocEnd(), "\ntaskwait();");
@@ -12,7 +17,7 @@ bool RewriterVisitor::VisitOMPTaskwaitDirective(clang::OMPTaskwaitDirective *tas
     return true;
 }
 
-bool RewriterVisitor::VisitFunctionDecl(FunctionDecl *f) {
+bool RewriterVisitor::VisitFunctionDecl(clang::FunctionDecl *f) {
     if (f->isMain() && f->hasBody()) {
         // We assume that there is more than one statement in the body
         auto body = cast<CompoundStmt>(f->getBody());
@@ -21,7 +26,8 @@ bool RewriterVisitor::VisitFunctionDecl(FunctionDecl *f) {
             TheRewriter.InsertTextBefore(body->body_back()->getLocStart(), "teardown_tasking();\n");
         }
         else {
-            llvm::errs() << "There might be a problem with the teardown mechanic in '" << this->FileName;
+            llvm::errs() << "There might be a problem with the teardown mechanic in '";
+            llvm::errs() << TheRewriter.getSourceMgr().getFileEntryForID(TheRewriter.getSourceMgr().getMainFileID())->getName().str();
             llvm::errs() << "'. No return statement found at the end of main().";
 
             auto end = Lexer::getLocForEndOfToken(body->body_back()->getLocEnd(), 0, TheRewriter.getSourceMgr(),

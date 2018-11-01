@@ -35,6 +35,13 @@ public:
      * @return Whether or not to recurse into the function (always true)
      */
     bool VisitOMPTaskwaitDirective(clang::OMPTaskwaitDirective *taskwait);
+
+    /**
+     * Visit each function in turn to rewrite the main function
+     * @param f The current function
+     * @return Whether or not to recurse into the function (always true)
+     */
+    bool VisitFunctionDecl(clang::FunctionDecl *f);
 };
 
 

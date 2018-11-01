@@ -256,7 +256,9 @@ void ExtractorVisitor::insertVarCapture(const ValueDecl& var, const SourceLocati
  * @param type A type which can be casted to a ConstantArrayType
  * @return the size of the array
  */
-size_t getArraySize(QualType type) {
+size_t getArraySize(const ValueDecl& var) {
+    auto t = var.getType();
+
     auto array = cast<ConstantArrayType>(t);
     auto size = array->getSize().getLimitedValue();
 
@@ -281,7 +283,7 @@ size_t ExtractorVisitor::getVarSize(const ValueDecl& var) {
         auto dt = cast<DecayedType>(t);
         auto source = dt->getOriginalType();
         if (isa<ConstantArrayType>(source)) {
-            return_value = getArraySize(t);
+            return_value = getArraySize(var);
         }
         else {
             // This should be unreachable because a decayed pointer which is only a pointer doesn't make any sense
@@ -291,7 +293,7 @@ size_t ExtractorVisitor::getVarSize(const ValueDecl& var) {
         }
     }
     else if (isa<ConstantArrayType>(t)) {
-        return_value = getArraySize(t);
+        return_value = getArraySize(var);
     }
     else {
         // Missing detailed implementation, warn about it
@@ -301,9 +303,11 @@ size_t ExtractorVisitor::getVarSize(const ValueDecl& var) {
     }
 
     if (return_value >= UINT64_MAX / 2) {
-        array->dump();
+        t.dump();
         llvm::errs() << "The array is most likely larger than the supported RAM for a 64 bit machine.";
         llvm::errs().flush();
         exit(1);
     }
+
+    return return_value;
 }

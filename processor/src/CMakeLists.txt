@@ -15,4 +15,4 @@
 
 add_clang_executable(processor main.cpp ExtractorVisitor.cpp RewriterVisitor.cpp)
 
-#target_link_libraries(processor PRIVATE clangTooling clangRewrite clangAST clangLex stdc++fs)
+target_link_libraries(processor PRIVATE clangTooling clangRewrite clangAST clangLex stdc++fs)

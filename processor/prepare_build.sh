@@ -1,8 +1,12 @@
 #!/bin/env bash
 
 cd "$1"/deps/clang
-ln -sf ../../processor/src/ tools/processor
+grep -q processor tools/CMakeLists.txt || echo "add_clang_subdirectory(processor)" >> tools/CMakeLists.txt
+test ! -d tools/processor && ln -s "$1"/processor/src/ tools/processor
+rm -rf build
 mkdir -p build
 cd build
+
+rm CMakeCache.txt
 
 cmake ..

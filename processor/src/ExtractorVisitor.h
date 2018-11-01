@@ -19,15 +19,16 @@
 class ExtractorVisitor : public clang::RecursiveASTVisitor<ExtractorVisitor>
 {
 public:
+     /**
+     * The rewriter instance which is used in order to rewrite code.
+     */
+    clang::Rewriter &TheRewriter;
+
     /**
      * Whether or not the generated code uses the tasking header.
      * This is set to true when any rewrites happened and it is used in main
      */
     bool needsHeader;
-    /**
-     * The rewriter instance which is used in order to rewrite code.
-     */
-    clang::Rewriter &TheRewriter;
 
 private:
     /**
@@ -68,13 +69,6 @@ public:
      * Deconstruct the ExtractorVisitor and finish all code to a usable state and write it to disk
      */
     ~ExtractorVisitor();
-
-    /**
-     * Visit each function in turn to rewrite the main function
-     * @param f The current function
-     * @return Whether or not to recurse into the function (always true)
-     */
-    bool VisitFunctionDecl(clang::FunctionDecl *f);
 
     /**
      * Visit each OMP task directive in turn and rewrites it.
