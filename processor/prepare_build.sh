@@ -7,6 +7,6 @@ rm -rf build
 mkdir -p build
 cd build
 
-rm CMakeCache.txt
+#rm CMakeCache.txt
 
-cmake ..
+cmake -DCMAKE_BUILD_TYPE="$2" ..

@@ -179,7 +179,9 @@ void ExtractorVisitor::extractConditionClause(const OMPTaskDirective& task, cons
 
         auto source = this->getSourceCode(*cond);
 
-        llvm::outs() << source;
+        if (source.front() != '(' && source.back() == ')') {
+            source.pop_back();
+        }
 
         TheRewriter.InsertTextAfterToken(task.getLocEnd(), "t." + property_name + " = (" + source + ");\n");
     }
@@ -256,13 +258,11 @@ void ExtractorVisitor::insertVarCapture(const ValueDecl& var, const SourceLocati
  * @param type A type which can be casted to a ConstantArrayType
  * @return the size of the array
  */
-size_t getArraySize(const ValueDecl& var) {
-    auto t = var.getType();
-
+size_t getArraySize(const QualType t, const ASTContext& c) {
     auto array = cast<ConstantArrayType>(t);
     auto size = array->getSize().getLimitedValue();
 
-    return var.getASTContext().getTypeInfo(array->getElementType()).Width / 8 * size;
+    return c.getTypeInfo(array->getElementType()).Width / 8 * size;
 }
 
 size_t ExtractorVisitor::getVarSize(const ValueDecl& var) {
@@ -283,7 +283,7 @@ size_t ExtractorVisitor::getVarSize(const ValueDecl& var) {
         auto dt = cast<DecayedType>(t);
         auto source = dt->getOriginalType();
         if (isa<ConstantArrayType>(source)) {
-            return_value = getArraySize(var);
+            return_value = getArraySize(source, var.getASTContext());
         }
         else {
             // This should be unreachable because a decayed pointer which is only a pointer doesn't make any sense
@@ -293,7 +293,7 @@ size_t ExtractorVisitor::getVarSize(const ValueDecl& var) {
         }
     }
     else if (isa<ConstantArrayType>(t)) {
-        return_value = getArraySize(var);
+        return_value = getArraySize(t, var.getASTContext());
     }
     else {
         // Missing detailed implementation, warn about it
