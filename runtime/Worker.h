@@ -37,7 +37,8 @@ class WorkerTask {
 	
 	task_id_t task_id;
 	code_id_t code_id;
-	std::atomic<bool> finish_flag; 
+	node_id_t origin;
+	std::atomic<bool> finish_flag;
 	std::thread task_thread;
 
 	bool started = false;
@@ -95,7 +96,9 @@ class WorkerNode {
 	//this is needed to continue the task later.
 	void add_to_waiting(task_id_t task_id);
 
-	private:
+	void *request_memory(node_id_t i, task_id_t i1);
+
+private:
 	bool quit_loop = false;
 
 	int recv_pending = 0;
@@ -105,6 +108,8 @@ class WorkerNode {
 	int recv_buffer_size;
 	MPI_Status status;
 	MPI_Request request;
+
+	void transfer_memory(std::shared_ptr<int> shared_ptr);
 };
 
 #endif

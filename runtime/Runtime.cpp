@@ -19,23 +19,13 @@ void RuntimeNode::setup(){
 
 	int world_size = 0;
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-	for( int i = 1; i < world_size; i++){
+	for( int i = 2; i < world_size; i++){
 		auto w = make_shared<Worker>();
 		w->node_id = i;
 		w->capacity = default_capacity;
 		workers.insert({i, w});
 		free_workers.push_back(w);
 	}
-
-	// initialer Task bauen
-	task_id_t root_id = id_counter++;
-	waittree_map.insert({root_id, make_shared<RuntimeTask>()});
-	
-	auto root_task = waittree_map[root_id];
-	root_task->code_id = 0;
-	root_task->task_id = root_id;
-
-	queued_tasks.push_back(root_task);
 }
 
 /*
@@ -49,7 +39,6 @@ void RuntimeNode::event_loop(){
 		while(free_workers.size() != 0 && queued_tasks.size() != 0){
 			handle_run_task();
 		}
-		check_completion();
 
 		//sleep a bit so we are not spamming the logs to much
 		this_thread::sleep_for(chrono::milliseconds(10));
@@ -64,6 +53,7 @@ void RuntimeNode::handle_create_task(std::shared_ptr<int> buffer, int length){
 	int* data = buffer.get();
 	task_id_t parent_id = data[0];
 	code_id_t code_id = data[1];
+	node_id_t origin = data[2];
 	task_id_t new_task_id = id_counter++;
 	waittree_map.insert({new_task_id, make_shared<RuntimeTask>()});
 
@@ -73,6 +63,7 @@ void RuntimeNode::handle_create_task(std::shared_ptr<int> buffer, int length){
 	new_task->code_id = code_id;
 	new_task->task_id = new_task_id;
 	new_task->parent = parent_task;
+	new_task->origin = origin;
 
 	parent_task->add_child(new_task);
 
@@ -125,11 +116,12 @@ void RuntimeNode::handle_run_task(){
 		free_workers.pop_front();
 	}
 	
-	int buffer[2];
+	int buffer[3];
 	buffer[0] = task->task_id;
 	buffer[1] = task->code_id;
+	buffer[2] = task->origin;
 
-	MPI_Send(&buffer, 2, MPI_INT, worker->node_id, TAG_COMMAND, MPI_COMM_WORLD);
+	MPI_Send(&buffer, 3, MPI_INT, worker->node_id, TAG_COMMAND, MPI_COMM_WORLD);
 }
 
 // receives a message and calls the corresponding handle
@@ -166,6 +158,9 @@ void RuntimeNode::receive_message(){
 				case TAG_CREATE:
 					handle_create_task(recv_buffer, recv_buffer_size);
 					break;
+				case TAG_SHUTDOWN:
+					quit_loop = true;
+					break;
 				case TAG_COMMAND:
 					handle_finish_task(recv_buffer, recv_buffer_size);
 					break;
@@ -194,11 +189,4 @@ void RuntimeNode::shutdown(){
 	for(auto it = workers.begin(); it != workers.end(); it++){
 		it->second->shutdown();
 	}
-}
-
-void RuntimeNode::check_completion(){
-	//checks if the initial task and all it's children has finished.
-	auto initial_task = waittree_map[0];
-	quit_loop = (initial_task->execution_finished 
-			&& initial_task->not_finished_children == 0);
 }

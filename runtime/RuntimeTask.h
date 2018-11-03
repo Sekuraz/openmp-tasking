@@ -27,6 +27,7 @@ class RuntimeTask{
 		int not_finished_children = 0;
 		int total_children = 0;
 
+		node_id_t origin;
 		code_id_t code_id;
 		task_id_t task_id;
 

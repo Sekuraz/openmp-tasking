@@ -12,6 +12,7 @@ const int TAG_WAITTASK = 50;
 const int TAG_WAITALL = 60;
 const int TAG_WAKEUPTASK = 70;
 const int TAG_FREECAPACITY = 80;
+const int TAG_MEMORY_TRANSFER = 90;
 
 
 const int re_rank = 0;

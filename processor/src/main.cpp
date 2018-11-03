@@ -1,4 +1,7 @@
 #include <experimental/filesystem>
+#include <iostream>
+#include <fstream>
+#include <cstdio>
 
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/RecursiveASTVisitor.h"
@@ -43,6 +46,8 @@ public:
         if (rewriter.needsHeader || extractor.needsHeader) {
             extractor.TheRewriter.InsertTextBefore((*DR.begin())->getLocStart(),
                                                  "#include \"" + fs::current_path().string() + "/processor/tasking.h\"\n");
+            extractor.TheRewriter.InsertTextAfter((*DR.begin())->getLocStart(),
+                                                 "#include \"/tmp/tasking_functions/all.hpp\"\n");
         }
         return true;
     }
@@ -53,14 +58,17 @@ private:
 };
 
 
-int main(int argc, const char *argv[]) {
+int main(int argc, char *argv[]) {
+
+    vector<string> args(argv, argv+argc) ;
+
 
     CompilerInstance TheCompInst;
     TheCompInst.createDiagnostics();
 
     bool hasInvocation = false;
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--") == 0) {
+        if (strcmp(argv[i], "--compile") == 0) {
             hasInvocation = true;
             auto invocation = make_shared<CompilerInvocation>();
             CompilerInvocation::CreateFromArgs(*invocation, argv + i + 1, argv + argc, TheCompInst.getDiagnostics());
@@ -100,7 +108,7 @@ int main(int argc, const char *argv[]) {
         FileIn = FileMgr.getFile(argv[1]);
     } else {
         if (TheCompInst.getInvocation().getFrontendOpts().Inputs.empty()) {
-            FileIn = FileMgr.getFile("test.cpp");
+            FileIn = FileMgr.getFile("test/simple.cpp");
         }
         else {
             FileIn = FileMgr.getFile(TheCompInst.getInvocation().getFrontendOpts().Inputs[0].getFile());
@@ -126,7 +134,18 @@ int main(int argc, const char *argv[]) {
 
     const RewriteBuffer *RewriteBuf = TheRewriter.getRewriteBufferFor(SourceMgr.getMainFileID());
 
-    llvm::outs() << string(RewriteBuf->begin(), RewriteBuf->end());
+    if (hasInvocation) {
+        auto out_file_name = std::tmpnam(nullptr);
+        ofstream out_file(out_file_name);
+        out_file << string(RewriteBuf->begin(), RewriteBuf->end());
+        out_file.close();
+
+        llvm::outs() << out_file_name;
+
+    }
+    else {
+        llvm::outs() << string(RewriteBuf->begin(), RewriteBuf->end());
+    }
 
     return 0;
 }

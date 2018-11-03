@@ -38,10 +38,11 @@ void WorkerTask::handle_finish(){
 }
 
 void WorkerTask::handle_create(code_id_t code_id){
-	int buffer[2];
+	int buffer[3];
 	buffer[0] = task_id;
 	buffer[1] = code_id;
-	MPI_Send(&buffer, 2, MPI_INT, re_rank, TAG_CREATE, MPI_COMM_WORLD);
+	buffer[2] = worker->node_id;
+	MPI_Send(&buffer, 3, MPI_INT, re_rank, TAG_CREATE, MPI_COMM_WORLD);
 }
 
 void WorkerTask::handle_wakeup(){
@@ -78,6 +79,8 @@ void WorkerTask::return_capacity(int claimed){
 void WorkerTask::run_task(){
 	started = true;
 	printf("task %d with code_id %d is running!\n", task_id, code_id);
+
+	void * arguments = worker->request_memory(origin, task_id);
 
 	switch(code_id){
 		case (0):
@@ -160,6 +163,9 @@ void WorkerNode::receive_message(){
 				case TAG_SHUTDOWN:
 					handle_shutdown();
 					break;
+                case TAG_MEMORY_TRANSFER:
+                    transfer_memory(recv_buffer);
+					break;
 				default:
 					printf("worker %d received a message with the unknown tag: %d.\n",
 							node_id, tag);
@@ -238,12 +244,14 @@ void WorkerNode::event_loop(){
 void WorkerNode::handle_run_task(std::shared_ptr<int> buffer, int length){
 	task_id_t task_id = buffer.get()[0];
 	code_id_t code_id = buffer.get()[1];
+	node_id_t origin = buffer.get()[2];
 
 	tasks.insert({task_id, make_shared<WorkerTask>()});
 
 	auto task = tasks[task_id];
 	task->task_id = task_id;
 	task->code_id = code_id;
+	task->origin = origin;
 	task->worker = this;
 
 	runnable_tasks.push_back(task);
@@ -268,4 +276,15 @@ void WorkerNode::add_to_waiting(task_id_t task_id){
 	auto task = tasks[task_id];
 	waiting_tasks[task_id] = task;
 	waiting_capacity++;
+}
+
+void * WorkerNode::request_memory(node_id_t origin, task_id_t task_id) {
+    array<int, 1> request {task_id};
+    MPI_Send(&request, 1, MPI_INT, origin, TAG_MEMORY_TRANSFER, MPI_COMM_WORLD);
+
+    return nullptr;
+}
+
+void WorkerNode::transfer_memory(std::shared_ptr<int> buffer) {
+
 }

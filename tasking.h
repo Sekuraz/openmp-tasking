@@ -10,15 +10,46 @@
 #include <fstream>
 #include <sstream>
 #include <malloc.h>
+#include <mpi.h>
 #include <sys/resource.h>
 
-#include "/tmp/tasking_functions/all.hpp"
+#include "runtime/Runtime.h"
+#include "runtime/Worker.h"
 
+extern WorkerNode* current_node(nullptr);
 
-void setup_tasking() {};
-void teardown_tasking() {};
+void setup_tasking() {
+    MPI_Init(nullptr, nullptr);
 
-void taskwait() {};
+	int world_rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+	if (world_rank == 0){
+		RuntimeNode runtime;
+		runtime.setup();
+		runtime.event_loop();
+		printf("runtime %d main finished\n", world_rank);
+	} else if (world_rank == 1) {
+        return; // Execute main method of original program
+    }
+    else {
+		WorkerNode worker;
+		worker.setup();
+		worker.event_loop();
+		printf("worker %d main finished\n", world_rank);
+	}
+
+	MPI_Finalize();
+    exit(EXIT_SUCCESS);
+};
+
+void teardown_tasking() {
+    MPI_Send(nullptr, 0, MPI_INT, re_rank, TAG_SHUTDOWN, MPI_COMM_WORLD);
+};
+
+void taskwait() {
+    throw "taskwait is not implemented yet.";
+};
 
 // get the number of bytes which should be transmitted to the other node for the given pointer
 size_t get_allocated_size(void* pointer) {
