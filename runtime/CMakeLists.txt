@@ -3,7 +3,7 @@ project(tdomp)
 find_package(MPI REQUIRED)
 include_directories(${MPI_INCLUDE_PATH})
 
-add_library(libtdomp SHARED Runtime.cpp RuntimeTask.cpp Worker.cpp)
+add_library(libtdomp SHARED Runtime.cpp RuntimeTask.cpp Worker.cpp WorkerTask.cpp WorkerTask.h)
 target_link_libraries(libtdomp PUBLIC ${MPI_LIBRARIES})
 
 add_executable(tdomp main.cpp)

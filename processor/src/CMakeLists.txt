@@ -13,6 +13,6 @@
 #        stdc++fs
 #)
 
-add_clang_executable(processor main.cpp ExtractorVisitor.cpp RewriterVisitor.cpp)
+add_clang_executable(processor main.cpp ExtractorVisitor.cpp RewriterVisitor.cpp VisitorBase.cpp)
 
 target_link_libraries(processor PRIVATE clangTooling clangRewrite clangAST clangLex stdc++fs)

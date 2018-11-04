@@ -5,28 +5,19 @@
 #ifndef PROJECT_REWRITERVISITOR_H
 #define PROJECT_REWRITERVISITOR_H
 
-#include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/Rewrite/Core/Rewriter.h>
+
+#include "VisitorBase.h"
 
 /**
  * Rewrite some OpenMP specific function calls
  * They might be within a task so they should be rewritten first
  */
-class RewriterVisitor : public clang::RecursiveASTVisitor<RewriterVisitor>
+class RewriterVisitor : public VisitorBase
 {
-public:
-    /**
-     * Whether or not the generated code uses the tasking header.
-     * This is set to true when any rewrites happened and it is used in main
-     */
-    bool needsHeader;
-    /**
-     * The rewriter instance which is used in order to rewrite code.
-     */
-    clang::Rewriter &TheRewriter;
 
 public:
-    explicit RewriterVisitor(clang::Rewriter &R) : needsHeader(false), TheRewriter(R) {}
+    explicit RewriterVisitor(clang::Rewriter &R) : VisitorBase(R) {}
 
     /**
      * Visit each OpenMP taskwait directive and rewrite it to use the taskwait function of the tasking header

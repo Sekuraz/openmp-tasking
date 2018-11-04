@@ -19,6 +19,7 @@
 
 #include "ExtractorVisitor.h"
 #include "RewriterVisitor.h"
+#include "VisitorBase.h"
 
 using namespace clang;
 using namespace std;
@@ -43,11 +44,15 @@ public:
             extractor.TraverseDecl(b);
 
         }
-        if (rewriter.needsHeader || extractor.needsHeader) {
+
+        extractor.finalize();
+
+        if ((rewriter.needsHeader || extractor.needsHeader) && !header_added) {
             extractor.TheRewriter.InsertTextBefore((*DR.begin())->getLocStart(),
-                                                 "#include \"" + fs::current_path().string() + "/processor/tasking.h\"\n");
+                                                 "#include \"tasking.h\"\n");
             extractor.TheRewriter.InsertTextAfter((*DR.begin())->getLocStart(),
                                                  "#include \"/tmp/tasking_functions/all.hpp\"\n");
+            header_added = true;
         }
         return true;
     }
@@ -55,25 +60,28 @@ public:
 private:
     RewriterVisitor rewriter;
     ExtractorVisitor extractor;
+    bool header_added = false;
 };
 
 
 int main(int argc, char *argv[]) {
 
-    vector<string> args(argv, argv+argc) ;
-
+    char * out_file_name = nullptr;
 
     CompilerInstance TheCompInst;
     TheCompInst.createDiagnostics();
 
     bool hasInvocation = false;
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--compile") == 0) {
+        if (strcmp(argv[i], "--") == 0) {
             hasInvocation = true;
             auto invocation = make_shared<CompilerInvocation>();
             CompilerInvocation::CreateFromArgs(*invocation, argv + i + 1, argv + argc, TheCompInst.getDiagnostics());
             TheCompInst.setInvocation(invocation);
             break;
+        }
+        if (strcmp(argv[i], "--outfile") == 0) {
+            out_file_name = argv[i + 1];
         }
     }
 
@@ -104,7 +112,7 @@ int main(int argc, char *argv[]) {
     // Set the main file handled by the source manager to the input file.
     const FileEntry *FileIn;
 
-    if (argc == 2 && !hasInvocation) {
+    if ((argc == 2 && !hasInvocation) || out_file_name) {
         FileIn = FileMgr.getFile(argv[1]);
     } else {
         if (TheCompInst.getInvocation().getFrontendOpts().Inputs.empty()) {
@@ -134,8 +142,7 @@ int main(int argc, char *argv[]) {
 
     const RewriteBuffer *RewriteBuf = TheRewriter.getRewriteBufferFor(SourceMgr.getMainFileID());
 
-    if (hasInvocation) {
-        auto out_file_name = std::tmpnam(nullptr);
+    if (out_file_name) {
         ofstream out_file(out_file_name);
         out_file << string(RewriteBuf->begin(), RewriteBuf->end());
         out_file.close();

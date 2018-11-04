@@ -12,6 +12,13 @@ void Worker::shutdown(){
 	MPI_Send(nullptr, 0, MPI_INT, node_id, TAG_SHUTDOWN, MPI_COMM_WORLD);
 };
 
+void run_runtime(int world_rank) {
+    RuntimeNode runtime;
+    runtime.setup();
+    runtime.event_loop();
+    printf("runtime %d main finished\n", world_rank);
+}
+
 void RuntimeNode::setup(){
 	int world_rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
@@ -58,14 +65,19 @@ void RuntimeNode::handle_create_task(std::shared_ptr<int> buffer, int length){
 	waittree_map.insert({new_task_id, make_shared<RuntimeTask>()});
 
 	auto new_task = waittree_map[new_task_id];
-	auto parent_task = waittree_map[parent_id];
 
 	new_task->code_id = code_id;
 	new_task->task_id = new_task_id;
-	new_task->parent = parent_task;
 	new_task->origin = origin;
 
-	parent_task->add_child(new_task);
+	printf("new task code: %d, task: %d, origin: %d.\n", code_id, new_task_id, origin);
+
+
+	if (new_task->origin != 1) {
+        auto parent_task = waittree_map[parent_id];
+        new_task->parent = parent_task;
+        parent_task->add_child(new_task);
+    }
 
 	queued_tasks.push_back(new_task);
 }

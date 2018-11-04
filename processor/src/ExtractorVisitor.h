@@ -10,25 +10,14 @@
 
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Rewrite/Core/Rewriter.h"
+#include "VisitorBase.h"
 
 
 /**
  * Extracts all the rewritten code from the @RewriterVisitor and rewrites task definitions.
  * This runs extra because inner code might be changed during the rewrite step.
  */
-class ExtractorVisitor : public clang::RecursiveASTVisitor<ExtractorVisitor>
-{
-public:
-     /**
-     * The rewriter instance which is used in order to rewrite code.
-     */
-    clang::Rewriter &TheRewriter;
-
-    /**
-     * Whether or not the generated code uses the tasking header.
-     * This is set to true when any rewrites happened and it is used in main
-     */
-    bool needsHeader;
+class ExtractorVisitor : public VisitorBase {
 
 private:
     /**
@@ -53,11 +42,6 @@ private:
      */
     std::stringstream out;
 
-    /**
-     * The file name of the out stream
-     */
-    std::string FileName;
-
 public:
     /**
      * Construct the ExtractorVisitor and start the boilerplate code
@@ -66,9 +50,9 @@ public:
     explicit ExtractorVisitor(clang::Rewriter &R);
 
     /**
-     * Deconstruct the ExtractorVisitor and finish all code to a usable state and write it to disk
+     * Finish all code to a usable state and write it to disk
      */
-    ~ExtractorVisitor();
+    void finalize();
 
     /**
      * Visit each OMP task directive in turn and rewrites it.
@@ -98,15 +82,6 @@ public:
      */
     template<typename ClauseType>
     void extractAccessClause(const clang::OMPTaskDirective& task, const std::string& access_name);
-
-    /**
-     * Get the code associated with the given statement.
-     * Doing this with the clang Rewriter.getRewrittenText (the content might have been changed during the rewriter run)
-     * might lead to missing ';'
-     * @param stmt The statement which source should be extracted
-     * @return THe string containing the source
-     */
-    std::string getSourceCode(const clang::Stmt& stmt);
 
     /**
      * Insert a variable capture for the given variable if it is not yet processed (see @handled_vars)

@@ -18,27 +18,28 @@ namespace fs = std::experimental::filesystem;
 
 
 ExtractorVisitor::ExtractorVisitor(Rewriter &R)
-    : TheRewriter(R), needsHeader(false),
-      FileName(fs::path(R.getSourceMgr().getFileEntryForID(R.getSourceMgr().getMainFileID())->getName().str()).filename())
+    : VisitorBase(R)
 {
     string f(FileName);
     std::replace(f.begin(), f.end(), '.', '_');
 
     out << "#ifndef __" << f << "__" << endl;
     out << "#define __" << f << "__" << endl;
-    out << "#ifndef __TASKING_FUNCTION_MAP_GUARD__" <<  endl;
-    out << "#define __TASKING_FUNCTION_MAP_GUARD__" <<  endl;
     out << "#include <map>" << endl;
-    out << "std::map<unsigned long, void (*)(void **)> tasking_function_map;" << endl;
-    out << "#endif" << endl << endl;
+    out << "extern std::map<int, void (*)(void **)> tasking_function_map;" << endl;
 }
 
-ExtractorVisitor::~ExtractorVisitor() {
-    // only write to disk if there is something to be written
+void ExtractorVisitor::finalize() {
+    llvm::outs() << "finalizing stuff\n";
+    for (auto elem = TheRewriter.buffer_begin(); elem != TheRewriter.buffer_end(); elem++) {
+        elem->second.write(llvm::outs());
+    }
+    llvm::outs() << "end finalize\n";
+
     if (!generated_ids.empty()) {
         out << "int setup_" << generated_ids[0] << "() {" << endl;
         for (auto &id : generated_ids) {
-            out << "    tasking_function_map[" << id << "ull] = &x_" << id << ";" << endl;
+            out << "    tasking_function_map[" << id << "] = &x_" << id << ";" << endl;
         }
         out << "    return 1;" << endl << "}" << endl << endl;
         out << "int tasking_setup_" << generated_ids[0] << " = setup_" << generated_ids[0] << "();" << endl;
@@ -71,12 +72,13 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
 
     // This is also the code id of the task
     stringstream hash_stream;
-    unsigned long long hash_numeric = hasher(task->getLocStart().printToString(TheRewriter.getSourceMgr()));
-    hash_stream << hash_numeric;
+    unsigned long long hash_long = hasher(task->getLocStart().printToString(TheRewriter.getSourceMgr()));
+    int hash_int = hash_long & INT_MAX;
+    hash_stream << hash_int;
     string hash = hash_stream.str();
 
     TheRewriter.InsertTextBefore(task->getLocStart(), "//");
-    TheRewriter.InsertTextAfterToken(task->getLocEnd(), "\nTask t(" + hash + "ull);\n");
+    TheRewriter.InsertTextAfterToken(task->getLocEnd(), "\nTask t(" + hash + ");\n");
 
     // start the function which is executed remotely
     out << "void x_" << hash << " (void* arguments[]) {" << endl;
@@ -129,7 +131,7 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
                             exit(1);
                     }
 
-                    string c = "t." + dep_type + ".push_back(\"" + name.str() + "\");\n";
+                    string c = "t." + dep_type + ".emplace_back(\"" + name.str() + "\");\n";
                     TheRewriter.InsertTextAfterToken(task->getLocEnd(), c);
                 } else {
                     llvm::errs() << "don't know how to handle a non DeclRef in depend clause, exiting.";
@@ -165,7 +167,7 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
     out << "    " << source;
     out << endl << "}" << endl;
 
-    generated_ids.push_back(hash);
+    generated_ids.emplace_back(hash);
 
     return true;
 }
@@ -206,15 +208,6 @@ void ExtractorVisitor::extractAccessClause(const OMPTaskDirective& task, const s
     }
 }
 
-string ExtractorVisitor::getSourceCode(const Stmt& stmt) {
-    auto sr = stmt.getSourceRange();
-    sr.setEnd(Lexer::getLocForEndOfToken(sr.getEnd(), 0, TheRewriter.getSourceMgr(), TheRewriter.getLangOpts()));
-
-    auto source = TheRewriter.getRewrittenText(sr);
-
-    return source;
-}
-
 void ExtractorVisitor::insertVarCapture(const ValueDecl& var, const SourceLocation& destination, const string& access_type) {
 
     string name = var.getName().str(), type = var.getType().getAsString();
@@ -237,7 +230,7 @@ void ExtractorVisitor::insertVarCapture(const ValueDecl& var, const SourceLocati
             capture << "*";
         }
         capture << name << "), at_" << access_type << ", " << getVarSize(var) << "};";
-        capture << "\n\tt.vars.push_back(" << name << "_var);\n}\n";
+        capture << "\n\tt.vars.emplace_back(" << name << "_var);\n}\n";
         TheRewriter.InsertTextAfterToken(destination, capture.str());
 
         out << "    void * " << name << "_pointer_" << layers <<" = arguments[" << this->handled_vars.size() << "];" << endl;
@@ -249,7 +242,7 @@ void ExtractorVisitor::insertVarCapture(const ValueDecl& var, const SourceLocati
             out << name << "_pointer_" << layers << ");" << endl;
         }
         out << "    " << type << " " << name << " = *((" << type << "*) " << name << "_pointer_0);" << endl;
-        this->handled_vars.push_back(name);
+        this->handled_vars.emplace_back(name);
     }
 }
 

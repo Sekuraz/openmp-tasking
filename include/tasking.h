@@ -12,11 +12,22 @@
 #include <malloc.h>
 #include <mpi.h>
 #include <sys/resource.h>
+#include <map>
 
-#include "runtime/Runtime.h"
-#include "runtime/Worker.h"
+#include "../runtime/utils.h"
 
-extern WorkerNode* current_node(nullptr);
+#include "../runtime/WorkerTask.h"
+
+class Task;
+void run_runtime(int);
+
+thread_local WorkerTask* current_task(nullptr);
+
+std::map<int, void (*)(void **)> tasking_function_map;
+
+std::map<int, Task&> created_tasks;
+
+static node_id_t main_node_id = 1; // cannot be 0, must be less than total_nodes
 
 void setup_tasking() {
     MPI_Init(nullptr, nullptr);
@@ -25,18 +36,15 @@ void setup_tasking() {
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
 	if (world_rank == 0){
-		RuntimeNode runtime;
-		runtime.setup();
-		runtime.event_loop();
-		printf("runtime %d main finished\n", world_rank);
-	} else if (world_rank == 1) {
+        run_runtime(world_rank);
+	} else if (world_rank == main_node_id) {
+	    current_task = new WorkerTask();
+	    current_task->code_id = -1;
+	    current_task->task_id = -1;
+	    current_task->origin = main_node_id;
         return; // Execute main method of original program
-    }
-    else {
-		WorkerNode worker;
-		worker.setup();
-		worker.event_loop();
-		printf("worker %d main finished\n", world_rank);
+    } else {
+		run_worker(world_rank);
 	}
 
 	MPI_Finalize();
@@ -45,6 +53,7 @@ void setup_tasking() {
 
 void teardown_tasking() {
     MPI_Send(nullptr, 0, MPI_INT, re_rank, TAG_SHUTDOWN, MPI_COMM_WORLD);
+    MPI_Finalize();
 };
 
 void taskwait() {
@@ -123,7 +132,7 @@ struct Var {
 
 class Task {
 public:
-    Task(unsigned long long code_id)
+    explicit Task(int code_id)
             : code_id(code_id), if_clause(true), final(false), untied(false), shared_by_default(true), mergeable(true),
               priority(0)
     {}
@@ -142,10 +151,15 @@ public:
         for (int i = 0; i < vars.size(); i++) {
             arguments[i] = vars[i].pointer;
         }
-        tasking_function_map[code_id](arguments);
+        if (current_task->code_id == -1) {
+            current_task->handle_create_from_main(code_id, main_node_id);
+        } else {
+            current_task->handle_create(code_id);
+        }
+        created_tasks.emplace(code_id, *this);
     }
 
-    unsigned long long code_id;
+    int code_id;
 
     bool if_clause; // if false, parent may not continue until this is finished
     bool final; // if true: sequential, also for children
