@@ -13,9 +13,8 @@
  * Rewrite some OpenMP specific function calls
  * They might be within a task so they should be rewritten first
  */
-class RewriterVisitor : public VisitorBase
+class RewriterVisitor : public VisitorBase, public clang::RecursiveASTVisitor<RewriterVisitor>
 {
-
 public:
     explicit RewriterVisitor(clang::Rewriter &R) : VisitorBase(R) {}
 

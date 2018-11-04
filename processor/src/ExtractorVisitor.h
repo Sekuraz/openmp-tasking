@@ -17,7 +17,8 @@
  * Extracts all the rewritten code from the @RewriterVisitor and rewrites task definitions.
  * This runs extra because inner code might be changed during the rewrite step.
  */
-class ExtractorVisitor : public VisitorBase {
+class ExtractorVisitor : public VisitorBase, public clang::RecursiveASTVisitor<ExtractorVisitor>
+{
 
 private:
     /**

@@ -45,8 +45,6 @@ public:
 
         }
 
-        extractor.finalize();
-
         if ((rewriter.needsHeader || extractor.needsHeader) && !header_added) {
             extractor.TheRewriter.InsertTextBefore((*DR.begin())->getLocStart(),
                                                  "#include \"tasking.h\"\n");
@@ -55,6 +53,10 @@ public:
             header_added = true;
         }
         return true;
+    }
+
+    void finalize() {
+        extractor.finalize();
     }
 
 private:
@@ -133,6 +135,7 @@ int main(int argc, char *argv[]) {
 
     // Parse the file to AST, registering our consumer as the AST consumer.
     ParseAST(TheCompInst.getPreprocessor(), &TheConsumer, TheCompInst.getASTContext());
+    TheConsumer.finalize(); //write to disk
 
     // At this point the rewriter's buffer should be full with the rewritten
     // file contents.

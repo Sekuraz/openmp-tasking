@@ -9,7 +9,8 @@
 #include <clang/Rewrite/Core/Rewriter.h>
 #include "clang/AST/RecursiveASTVisitor.h"
 
-class VisitorBase : public clang::RecursiveASTVisitor<VisitorBase>{
+class VisitorBase
+{
 public:
     /**
      * The rewriter instance which is used in order to rewrite code.

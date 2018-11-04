@@ -14,12 +14,12 @@ include_directories(${MPI_INCLUDE_PATH})
 #add_custom_command()
 
 add_custom_command(
-        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/simple.pre.cpp
-        COMMAND ../processor/processor ${CMAKE_CURRENT_SOURCE_DIR}/simple.cpp --outfile ${CMAKE_CURRENT_BINARY_DIR}/simple.pre.cpp
+        OUTPUT ${CMAKE_BINARY_DIR}/simple.pre.cpp
+        COMMAND ../processor/processor ${CMAKE_CURRENT_SOURCE_DIR}/simple.cpp --outfile ${CMAKE_BINARY_DIR}/simple.pre.cpp
         DEPENDS ../processor/processor ${CMAKE_CURRENT_SOURCE_DIR}/simple.cpp
 )
 
-add_executable(simple ${CMAKE_CURRENT_BINARY_DIR}/simple.pre.cpp)
+add_executable(simple ${CMAKE_BINARY_DIR}/simple.pre.cpp)
 target_link_libraries(simple PRIVATE libtdomp ${MPI_LIBRARIES})
 
 

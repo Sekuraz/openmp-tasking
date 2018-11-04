@@ -30,12 +30,6 @@ ExtractorVisitor::ExtractorVisitor(Rewriter &R)
 }
 
 void ExtractorVisitor::finalize() {
-    llvm::outs() << "finalizing stuff\n";
-    for (auto elem = TheRewriter.buffer_begin(); elem != TheRewriter.buffer_end(); elem++) {
-        elem->second.write(llvm::outs());
-    }
-    llvm::outs() << "end finalize\n";
-
     if (!generated_ids.empty()) {
         out << "int setup_" << generated_ids[0] << "() {" << endl;
         for (auto &id : generated_ids) {
