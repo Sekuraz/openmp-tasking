@@ -88,6 +88,8 @@ void WorkerNode::event_loop(){
 		//printf("worker %d event loop\n", node_id);
 		receive_message();
 
+		std::cout << "Capacity: " << capacity << std::endl;
+
 		int start_capacity = capacity;
 
 		//Handle the capacity that was freed by suspending tasks
@@ -109,6 +111,7 @@ void WorkerNode::event_loop(){
 		}
 
 		while(runnable_tasks.size() > 0){
+		    std::cout << "runnable tasks: " << runnable_tasks.size() << std::endl;
 			//Take the next task and execute it
 			int remaining_capacity = --capacity;
 
@@ -159,7 +162,8 @@ void WorkerNode::handle_run_task(std::shared_ptr<int> buffer, int length){
 
 void WorkerNode::handle_free_capacity(int amount){
 	printf("freeing capacity %d\n", amount);
-	MPI_Send(&amount, 1, MPI_INT, re_rank, TAG_FREECAPACITY, MPI_COMM_WORLD);
+	int amount_copy = amount;
+	MPI_Send(&amount_copy, 1, MPI_INT, re_rank, TAG_FREECAPACITY, MPI_COMM_WORLD);
 }
 
 void WorkerNode::handle_wakeup(std::shared_ptr<int> buffer, int length){

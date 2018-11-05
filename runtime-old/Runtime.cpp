@@ -56,7 +56,7 @@ void RuntimeNode::event_loop(){
 	while(!quit_loop){
 		//printf("Runtime event loop\n");
 		receive_message();
-		while(free_workers.size() != 0 && queued_tasks.size() != 0){
+		while(!free_workers.empty() && !queued_tasks.empty()){
 			handle_run_task();
 		}
 
@@ -164,6 +164,9 @@ void RuntimeNode::receive_message(){
 		MPI_Get_count(&status, MPI_INT, &recv_buffer_size);
 		tag = status.MPI_TAG;
 		source = status.MPI_SOURCE;
+
+		std::cout << "start receive " << tag << " from " << source << std::endl;
+
 		recv_buffer = shared_ptr<int>(new int[recv_buffer_size], default_delete<int[]>());
 		MPI_Irecv(recv_buffer.get(), recv_buffer_size, MPI_INT, source, tag, MPI_COMM_WORLD, &request);
 		recv_pending = 0;

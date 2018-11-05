@@ -7,5 +7,5 @@ include_directories(include)
 
 
 add_subdirectory(processor)
-add_subdirectory(runtime)
+#add_subdirectory(runtime-old)
 add_subdirectory(test)

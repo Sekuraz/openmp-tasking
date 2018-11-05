@@ -106,6 +106,5 @@ void WorkerTask::run_task(){
 
     printf("task %d with code_id %d has finished!\n", task_id, code_id);
 
-
 	handle_finish();
 }
