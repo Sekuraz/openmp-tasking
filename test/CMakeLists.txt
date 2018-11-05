@@ -20,7 +20,7 @@ add_custom_command(
 )
 
 add_executable(simple ${CMAKE_BINARY_DIR}/simple.pre.cpp)
-target_link_libraries(simple PRIVATE libtdomp ${MPI_LIBRARIES})
+target_link_libraries(simple PRIVATE tdomp-old ${MPI_LIBRARIES})
 
 
 if(MPI_COMPILE_FLAGS)
