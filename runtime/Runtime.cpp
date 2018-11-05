@@ -39,7 +39,7 @@ void RuntimeNode::setup(){
 	waittree_map.insert({root_id, make_shared<RuntimeTask>()});
 
 	auto root_task = waittree_map[root_id];
-	root_task->code_id = 0;
+	root_task->code_id = id_counter++;
 	root_task->task_id = root_id;
 	root_task->origin = re_rank;
 
