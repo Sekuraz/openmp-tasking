@@ -39,6 +39,12 @@ private:
     std::hash<std::string> hasher;
 
     /**
+     * The id of the currently processed task
+     */
+    std::string hash;
+
+
+    /**
      * The additional header file with all extracted and boilerplate code
      */
     std::stringstream out;

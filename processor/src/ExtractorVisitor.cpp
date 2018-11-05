@@ -69,10 +69,10 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
     unsigned long long hash_long = hasher(task->getLocStart().printToString(TheRewriter.getSourceMgr()));
     int hash_int = hash_long & INT_MAX;
     hash_stream << hash_int;
-    string hash = hash_stream.str();
+    hash = hash_stream.str();
 
     TheRewriter.InsertTextBefore(task->getLocStart(), "//");
-    TheRewriter.InsertTextAfterToken(task->getLocEnd(), "\nTask t(" + hash + ");\n");
+    TheRewriter.InsertTextAfterToken(task->getLocEnd(), "\nTask t_" + hash + "(" + hash + ");\n");
 
     // start the function which is executed remotely
     out << "void x_" << hash << " (void* arguments[]) {" << endl;
@@ -81,18 +81,18 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
     this->extractConditionClause<OMPFinalClause>(*task, "final");
 
     if (task->hasClausesOfKind<OMPUntiedClause>()) {
-        TheRewriter.InsertTextAfterToken(task->getLocEnd(), "t.untied = true;\n");
+        TheRewriter.InsertTextAfterToken(task->getLocEnd(), "t_" + hash + ".untied = true;\n");
     }
     if (task->hasClausesOfKind<OMPDefaultClause>()) {
         auto clause = task->getSingleClause<OMPDefaultClause>();
         auto kind = clause->getDefaultKind();
 
         if (kind != OMPC_DEFAULT_shared) {
-            TheRewriter.InsertTextAfterToken(task->getLocEnd(), "t.shared_by_default = false;\n");
+            TheRewriter.InsertTextAfterToken(task->getLocEnd(), "t_" + hash + ".shared_by_default = false;\n");
         }
     }
     if (task->hasClausesOfKind<OMPMergeableClause>()) {
-        TheRewriter.InsertTextAfterToken(task->getLocEnd(), "t.mergeable = true;\n");
+        TheRewriter.InsertTextAfterToken(task->getLocEnd(), "t_" + hash + ".mergeable = true;\n");
     }
 
     this->extractAccessClause<OMPPrivateClause>(*task, "private");
@@ -125,7 +125,7 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
                             exit(1);
                     }
 
-                    string c = "t." + dep_type + ".emplace_back(\"" + name.str() + "\");\n";
+                    string c = "t_" + hash + "." + dep_type + ".emplace_back(\"" + name.str() + "\");\n";
                     TheRewriter.InsertTextAfterToken(task->getLocEnd(), c);
                 } else {
                     llvm::errs() << "don't know how to handle a non DeclRef in depend clause, exiting.";
@@ -142,7 +142,7 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
 
         auto source = this->getSourceCode(*cond);
 
-        TheRewriter.InsertTextAfterToken(task->getLocEnd(), "t.priority = (" + source + ");\n");
+        TheRewriter.InsertTextAfterToken(task->getLocEnd(), "t_" + hash + ".priority = (" + source + ");\n");
     }
 
     for (auto var : code->captures()) {
@@ -151,7 +151,7 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
 
     // replace the source code of the task with a call to the schedule function of the generated task struct
     auto source = this->getSourceCode(*code);
-    TheRewriter.ReplaceText(code->getLocStart(), (unsigned int) source.length(), "t.schedule();");
+    TheRewriter.ReplaceText(code->getLocStart(), (unsigned int) source.length(), "t_" + hash + ".schedule();");
 
     if (source.back() != '}') { // single line
         source = "{ " + source + "; }";
@@ -179,7 +179,7 @@ void ExtractorVisitor::extractConditionClause(const OMPTaskDirective& task, cons
             source.pop_back();
         }
 
-        TheRewriter.InsertTextAfterToken(task.getLocEnd(), "t." + property_name + " = (" + source + ");\n");
+        TheRewriter.InsertTextAfterToken(task.getLocEnd(), "t_" + hash + "." + property_name + " = (" + source + ");\n");
     }
 }
 
@@ -224,7 +224,7 @@ void ExtractorVisitor::insertVarCapture(const ValueDecl& var, const SourceLocati
             capture << "*";
         }
         capture << name << "), at_" << access_type << ", " << getVarSize(var) << "};";
-        capture << "\n\tt.vars.emplace_back(" << name << "_var);\n}\n";
+        capture << "\n\tt_" + hash + ".vars.emplace_back(" << name << "_var);\n}\n";
         TheRewriter.InsertTextAfterToken(destination, capture.str());
 
         out << "    void * " << name << "_pointer_" << layers <<" = arguments[" << this->handled_vars.size() << "];" << endl;
