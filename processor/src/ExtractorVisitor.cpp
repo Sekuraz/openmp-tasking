@@ -17,8 +17,8 @@ using namespace std;
 namespace fs = std::experimental::filesystem;
 
 
-ExtractorVisitor::ExtractorVisitor(Rewriter &R)
-    : VisitorBase(R)
+ExtractorVisitor::ExtractorVisitor(Rewriter &R, string main_file)
+    : VisitorBase(R, main_file)
 {
     string f(FileName);
     std::replace(f.begin(), f.end(), '.', '_');

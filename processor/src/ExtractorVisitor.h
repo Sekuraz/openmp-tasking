@@ -10,8 +10,8 @@
 
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Rewrite/Core/Rewriter.h"
-#include "VisitorBase.h"
 
+#include "VisitorBase.h"
 
 /**
  * Extracts all the rewritten code from the @RewriterVisitor and rewrites task definitions.
@@ -47,8 +47,9 @@ public:
     /**
      * Construct the ExtractorVisitor and start the boilerplate code
      * @param R The Rewriter for the current compilation unit
+     * @param main_file the name of the input file
      */
-    explicit ExtractorVisitor(clang::Rewriter &R);
+    ExtractorVisitor(clang::Rewriter &R, std::string main_file);
 
     /**
      * Finish all code to a usable state and write it to disk

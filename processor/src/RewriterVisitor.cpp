@@ -2,12 +2,18 @@
 // Created by markus on 4/13/18.
 //
 
-#include "RewriterVisitor.h"
+#include <sstream>
+#include <fstream>
+#include <experimental/filesystem>
 
 #include "clang/Lex/Lexer.h"
 
+#include "RewriterVisitor.h"
 
+using namespace std;
 using namespace clang;
+namespace fs = std::experimental::filesystem;
+
 
 bool RewriterVisitor::VisitOMPTaskwaitDirective(clang::OMPTaskwaitDirective *taskwait) {
     TheRewriter.InsertTextBefore(taskwait->getLocStart(), "//");
@@ -21,20 +27,27 @@ bool RewriterVisitor::VisitFunctionDecl(clang::FunctionDecl *f) {
     if (f->isMain() && f->hasBody()) {
         // We assume that there is more than one statement in the body
         auto body = cast<CompoundStmt>(f->getBody());
-        TheRewriter.InsertTextBefore(body->body_front()->getLocStart(), "setup_tasking();\n");
-        if (isa<ReturnStmt>(body->body_back())) {
-            TheRewriter.InsertTextBefore(body->body_back()->getLocStart(), "teardown_tasking();\n");
-        }
-        else {
-            llvm::errs() << "There might be a problem with the teardown mechanic in '";
-            llvm::errs() << TheRewriter.getSourceMgr().getFileEntryForID(TheRewriter.getSourceMgr().getMainFileID())->getName().str();
-            llvm::errs() << "'. No return statement found at the end of main().";
 
-            auto end = Lexer::getLocForEndOfToken(body->body_back()->getLocEnd(), 0, TheRewriter.getSourceMgr(),
-                                                  TheRewriter.getLangOpts());
-
-            TheRewriter.InsertTextAfter(end, "teardown_tasking();\n");
+        stringstream main_code;
+        istringstream main_code_stream(getSourceCode(*body));
+        string line;
+        while (getline(main_code_stream, line)) {
+           if (line.find("return") != string::npos) {
+               line = "return;"; // no support for return values
+           }
+           main_code << line << endl;
         }
+
+        TheRewriter.RemoveText(SourceRange(body->getLocStart(), body->getLocEnd()));
+        TheRewriter.InsertTextAfter(body->getLocStart(), "{ setup_tasking(argc, argv); }");
+
+
+        stringstream out;
+        out << "void __main_0(int argc, char *argv[]) {" << endl;
+        out << main_code.str();
+        out << "}" << endl;
+
+        TheRewriter.InsertTextBefore(f->getLocStart(), out.str());
 
         this->needsHeader = true;
     }

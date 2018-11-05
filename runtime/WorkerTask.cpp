@@ -10,6 +10,10 @@ using namespace std;
 extern thread_local WorkerTask* current_task;
 extern std::map<int, void (*)(void **)> tasking_function_map;
 
+extern int argc;
+extern char** argv;
+void __main_0(int, char**);
+
 
 void WorkerTask::handle_taskwait(){
 	handle_wait(TAG_WAITTASK);
@@ -90,13 +94,17 @@ void WorkerTask::run_task(){
 
 	current_task = this;
 
-
-	if (tasking_function_map.count(code_id))
-    {
+	if (code_id == 0) {
+		__main_0(argc, argv);
+	} else if (tasking_function_map.count(code_id)) {
 	    void * arguments = worker->request_memory(origin, task_id);
     } else {
         printf("task %d unknown code id %d\n", task_id, code_id);
     }
+
+    this_thread::sleep_for(chrono::milliseconds(1000));
+
+    printf("task %d with code_id %d has finished!\n", task_id, code_id);
 
 
 	handle_finish();

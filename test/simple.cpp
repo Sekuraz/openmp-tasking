@@ -5,6 +5,7 @@
 
 void test(int a[AS], int* p) {
     for(int i = 0; i < AS; i++) {
+        std::cout << "generating task " << i << std::endl;
         #pragma omp task untied mergeable if(i == 3) final(i == 5) depend(in: a)
         {
             a[i] = i + *p;
@@ -13,6 +14,8 @@ void test(int a[AS], int* p) {
 }
 
 int main(int argc, char** argv) {
+
+    std::cout << "hello from main" << std::endl;
 
     int* a = new int[AS];
     int b[AS];

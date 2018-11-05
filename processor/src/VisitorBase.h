@@ -25,8 +25,9 @@ public:
     /**
      * Construct the VisitorBase
      * @param R The Rewriter for the current compilation unit
+     * @param main_file the name of the input file
      */
-    explicit VisitorBase(clang::Rewriter &R);
+    explicit VisitorBase(clang::Rewriter &R, std::string main_file);
 
    /**
      * Get the code associated with the given statement.

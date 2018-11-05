@@ -76,8 +76,6 @@ void WorkerNode::receive_message(){
 			recv_buffer.reset();
 		}
 	}
-	
-
 }
 
 void WorkerNode::handle_shutdown(){

@@ -27,9 +27,10 @@ std::map<int, void (*)(void **)> tasking_function_map;
 
 std::map<int, Task&> created_tasks;
 
-static node_id_t main_node_id = 1; // cannot be 0, must be less than total_nodes
+int argc;
+char** argv;
 
-void setup_tasking() {
+void setup_tasking(int arg_c, char** arg_v) {
     MPI_Init(nullptr, nullptr);
 
 	int world_rank;
@@ -37,23 +38,14 @@ void setup_tasking() {
 
 	if (world_rank == 0){
         run_runtime(world_rank);
-	} else if (world_rank == main_node_id) {
-	    current_task = new WorkerTask();
-	    current_task->code_id = -1;
-	    current_task->task_id = -1;
-	    current_task->origin = main_node_id;
-        return; // Execute main method of original program
     } else {
+	    argc = arg_c;
+	    argv = arg_v;
 		run_worker(world_rank);
 	}
 
 	MPI_Finalize();
     exit(EXIT_SUCCESS);
-};
-
-void teardown_tasking() {
-    MPI_Send(nullptr, 0, MPI_INT, re_rank, TAG_SHUTDOWN, MPI_COMM_WORLD);
-    MPI_Finalize();
 };
 
 void taskwait() {
@@ -76,30 +68,33 @@ size_t get_allocated_size(void* pointer) {
         // this char reads the '-' between the 2 values in the file, otherwise the return value is incorrect
         char discard;
 
-        if (line.find(heap) != std::string::npos) {
+        std::istringstream iss(line);
+        iss >> std::hex >> start >> discard >> end;
 
-            std::istringstream iss(line);
-            iss >> std::hex >> start >> discard >> end;
+        if (start < t && t < end) {
 
-
-            if (start < t && t < end) {
+            if (line.find(heap) != std::string::npos) {
                 isHeap = true;
                 start_of_heap = start;
                 break;
             }
-        }
-        if (line.find(stack) != std::string::npos) {
-            std::istringstream iss(line);
-
-            iss >> std::hex >> start >> discard >> end;
-
-            if (start < t && t < end) {
+            else if (line.find(stack) != std::string::npos) {
                 // return the maximum stack size, this should be low enough to not be that much of a burden
                 // TODO look wether the relevant memory is already transmitted
                 rlimit lim;
                 getrlimit(RLIMIT_STACK, &lim);
                 return lim.rlim_cur;
             }
+            else {
+//                std::cout << line << std::endl;
+//
+//                asm("int $3");
+
+                rlimit lim;
+                getrlimit(RLIMIT_STACK, &lim);
+                return lim.rlim_cur;
+            }
+
         }
     }
 
@@ -151,11 +146,8 @@ public:
         for (int i = 0; i < vars.size(); i++) {
             arguments[i] = vars[i].pointer;
         }
-        if (current_task->code_id == -1) {
-            current_task->handle_create_from_main(code_id, main_node_id);
-        } else {
-            current_task->handle_create(code_id);
-        }
+
+        current_task->handle_create(code_id);
         created_tasks.emplace(code_id, *this);
     }
 

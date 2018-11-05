@@ -16,7 +16,12 @@
 class RewriterVisitor : public VisitorBase, public clang::RecursiveASTVisitor<RewriterVisitor>
 {
 public:
-    explicit RewriterVisitor(clang::Rewriter &R) : VisitorBase(R) {}
+    /**
+     * Construct the RewriterVisitor
+     * @param R The Rewriter for the current compilation unit
+     * @param main_file the name of the input file
+     */
+    explicit RewriterVisitor(clang::Rewriter &R, std::string main_file) : VisitorBase(R, main_file) {}
 
     /**
      * Visit each OpenMP taskwait directive and rewrite it to use the taskwait function of the tasking header

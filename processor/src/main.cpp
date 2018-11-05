@@ -31,8 +31,8 @@ namespace fs = std::experimental::filesystem;
 class MyASTConsumer : public ASTConsumer
 {
 public:
-    MyASTConsumer(Rewriter &R)
-        : rewriter(R), extractor(R)
+    MyASTConsumer(Rewriter &R, string main_file)
+        : rewriter(R, main_file), extractor(R, main_file)
     {}
 
     // Override the method that gets called for each parsed top-level
@@ -131,7 +131,9 @@ int main(int argc, char *argv[]) {
 
     // Create an AST consumer instance which is going to get called by
     // ParseAST.
-    MyASTConsumer TheConsumer(TheRewriter);
+    string file_name = FileIn->getName().str();
+    replace(file_name.begin(), file_name.end(), '/', '_');
+    MyASTConsumer TheConsumer(TheRewriter, file_name);
 
     // Parse the file to AST, registering our consumer as the AST consumer.
     ParseAST(TheCompInst.getPreprocessor(), &TheConsumer, TheCompInst.getASTContext());

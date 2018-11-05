@@ -69,6 +69,8 @@ class RuntimeNode {
 	// also shuts down all workers belonging to the runtime node.
 	void shutdown();
 
+	void check_completion();
+
 	private:
 	bool quit_loop = false;
 
