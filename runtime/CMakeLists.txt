@@ -3,7 +3,7 @@ project(tdomp)
 find_package(MPI REQUIRED)
 include_directories(${MPI_INCLUDE_PATH})
 
-add_library(tdomp SHARED src/Task.cpp src/Worker.cpp src/Runtime.cpp)
+add_library(tdomp SHARED src/Task.cpp src/Worker.cpp src/Runtime.cpp src/Scheduler.cpp)
 target_link_libraries(tdomp PUBLIC ${MPI_LIBRARIES})
 
 
@@ -17,3 +17,5 @@ endif()
 
 add_executable(create_task test/create_task.cpp)
 target_link_libraries(create_task tdomp)
+add_executable(setup test/setup.cpp)
+target_link_libraries(setup tdomp)

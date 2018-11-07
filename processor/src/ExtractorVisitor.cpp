@@ -72,7 +72,7 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
     hash = hash_stream.str();
 
     TheRewriter.InsertTextBefore(task->getLocStart(), "//");
-    TheRewriter.InsertTextAfterToken(task->getLocEnd(), "\nTask* t_" + hash + " = new Task(" + hash + ");\n");
+    TheRewriter.InsertTextAfterToken(task->getLocEnd(), "\nauto t_" + hash + " = std::make_shared<Task>(" + hash + ");\n");
 
     // start the function which is executed remotely
     out << "void x_" << hash << " (void* arguments[]) {" << endl;

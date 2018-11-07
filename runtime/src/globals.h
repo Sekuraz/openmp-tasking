@@ -7,9 +7,9 @@
 
 #include <map>
 
-class Task;
+#include "utils.h"
 
-thread_local Task* current_task;
+thread_local STask current_task;
 
 std::map<int, void (*)(void **)> tasking_function_map;
 

@@ -26,17 +26,17 @@ int main(int argc, char ** argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
     if (world_rank == 0) {
-        Runtime r;
-        while (r.created_tasks.size() < world_size - 1) {
+        Runtime r(world_rank, world_size);
+        while (r.scheduler.get_all_tasks().size() < world_size - 1) {
             r.receive_message();
         }
 
-        if (world_size > 2 && r.created_tasks[0]->priority != 42) {
+        if (world_size > 2 && r.scheduler.created_tasks[0]->priority != 42) {
             cout << "wrong priority" << endl;
             exit(EXIT_FAILURE);
         }
 
-        if (world_size > 3 && r.created_tasks[1]->parent_id != -1) {
+        if (world_size > 3 && r.scheduler.created_tasks[1]->parent_id != -1) {
             cout << "wrong parent id" << endl;
             exit(EXIT_FAILURE);
         }

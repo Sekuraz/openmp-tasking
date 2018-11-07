@@ -13,7 +13,6 @@
 
 #include "Worker.h"
 
-
 class Task {
 public:
     explicit Task(int code_id);
@@ -24,7 +23,7 @@ public:
 
     std::vector<int> serialize();
 
-    static Task * deserialize(int * input);
+    static STask deserialize(int * input);
 
     int code_id;
     int task_id;

@@ -47,6 +47,8 @@ public:
 
         if ((rewriter.needsHeader || extractor.needsHeader) && !header_added) {
             extractor.TheRewriter.InsertTextBefore((*DR.begin())->getLocStart(),
+                                                 "#include <memory>\n\n");
+            extractor.TheRewriter.InsertTextBefore((*DR.begin())->getLocStart(),
                                                  "#include \"tasking.h\"\n");
             extractor.TheRewriter.InsertTextAfter((*DR.begin())->getLocStart(),
                                                  "#include \"/tmp/tasking_functions/all.hpp\"\n");

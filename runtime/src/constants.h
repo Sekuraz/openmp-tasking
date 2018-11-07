@@ -10,7 +10,8 @@ static int worker_per_runtime = 100;
 enum TAG {
     CREATE_TASK,
     RUN_TASK,
-    REQUEST_MEMORY
+    REQUEST_MEMORY,
+    REPORT_CAPACITY
 };
 
 #endif //LIBTDOMP_CONSTANTS_H

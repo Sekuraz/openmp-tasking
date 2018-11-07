@@ -6,7 +6,12 @@
 #define LIBTDOMP_UTIL_H
 
 #include <string>
+#include <vector>
+#include <memory>
 
+
+class Task;
+typedef std::shared_ptr<Task> STask;
 
 enum access_type {at_shared, at_firstprivate, at_private, at_default};
 
@@ -15,6 +20,14 @@ struct Var {
     void * pointer;
     access_type access;
     size_t size;
+};
+
+struct RuntimeWorker {
+    std::vector<STask> running_tasks;
+    int node_id;
+
+    int capacity;
+    int free_capcaity;
 };
 
 

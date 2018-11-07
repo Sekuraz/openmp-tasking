@@ -60,10 +60,10 @@ vector<int> Task::serialize() {
     return output;
 }
 
-Task * Task::deserialize(int *input) {
+STask Task::deserialize(int *input) {
     int index = 0;
 
-    auto task = new Task(input[index++]);
+    auto task = make_shared<Task>(input[index++]);
     task->task_id = input[index++];
     task->origin_id = input[index++];
     task->if_clause = input[index++] != 0;

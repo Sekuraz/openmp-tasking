@@ -8,12 +8,12 @@
 #include <map>
 #include <mutex>
 
+#include "utils.h"
 
-class Task;
 
 class Worker {
 public:
-    explicit Worker(int worker_id);
+    explicit Worker(int node_id);
 
     void submit_task(Task* task);
     void handle_run_task(int* data, int length);
@@ -21,11 +21,13 @@ public:
     void ** request_memory(int origin, int task_id);
     void handle_request_memory(int *data, int length);
 
+    void setup();
+
 private:
-    std::map<int, Task*> created_tasks;
+    std::map<int, STask> created_tasks;
     std::mutex modify_state;
 
-    int worker_id;
+    int node_id;
     int runtime_node_id;
     int capacity = 4;
 };

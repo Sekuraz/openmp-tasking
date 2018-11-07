@@ -12,13 +12,16 @@
 using namespace std;
 extern map<int, void (*)(void **)> tasking_function_map;
 
-void Worker::submit_task(Task *task) {
-    task->origin_id = worker_id;
-
+void Worker::submit_task(Task* task) {
     lock_guard lock(this->modify_state);
+
+    task->origin_id = node_id;
+
     auto data = task->serialize();
-    cout << "Creating new task for " << task->code_id << " on " << this->runtime_node_id << endl;
-    MPI_Send(&data[0], data.size(), MPI_INT, this->runtime_node_id, TAG::CREATE_TASK, MPI_COMM_WORLD);
+//    cout << "Creating Task(code_id: " << task->code_id
+//         << ", origin: " << task->origin_id
+//         << ", runtime: " << this->runtime_node_id << ")" << endl;
+    MPI_Send(&data[0], (int)data.size(), MPI_INT, this->runtime_node_id, TAG::CREATE_TASK, MPI_COMM_WORLD);
 
     int task_id;
     MPI_Recv(&task_id, 1, MPI_INT, this->runtime_node_id, TAG::CREATE_TASK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -26,11 +29,13 @@ void Worker::submit_task(Task *task) {
 
     this->created_tasks.emplace(task_id, task);
 
-    cout << "Created new task for " << task->code_id << " on " << this->runtime_node_id << ", task_id is " << task_id << endl;
-
+    cout << "Created  Task(code_id: " << task->code_id
+         << ", origin: " << task->origin_id
+         << ", runtime: " << this->runtime_node_id
+         << ", task_id: " << task_id << ")" << endl;
 }
 
-Worker::Worker(int worker_id) : worker_id(worker_id), runtime_node_id((worker_id / worker_per_runtime) * worker_per_runtime) {
+Worker::Worker(int node_id) : node_id(node_id), runtime_node_id((node_id / worker_per_runtime) * worker_per_runtime) {
 
 }
 
@@ -39,7 +44,7 @@ void Worker::handle_run_task(int *data, int length) {
 
     void ** memory;
 
-    if (task->task_id != 0 && task->variables_count != 0 && task->origin_id != this->worker_id) {
+    if (task->task_id != 0 && task->variables_count != 0 && task->origin_id != this->node_id) {
         memory = request_memory(task->origin_id, task->task_id);
     }
 
@@ -57,6 +62,10 @@ void ** Worker::request_memory(int origin, int task_id) {
     int variables_count = 0;
     MPI_Recv(&variables_count, 1, MPI_INT, origin, TAG::REQUEST_MEMORY, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
+
+    throw "not implemented";
 }
 
-
+void Worker::setup() {
+    MPI_Send(&this->capacity, 1, MPI_INT, this->runtime_node_id, TAG::REPORT_CAPACITY, MPI_COMM_WORLD);
+}

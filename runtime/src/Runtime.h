@@ -7,28 +7,35 @@
 
 #include <map>
 #include <mpi.h>
+#include <vector>
+#include <memory>
 
-class Task;
+#include "utils.h"
+#include "Scheduler.h"
+
 
 class Runtime {
 public:
-    explicit Runtime() = default;
+    explicit Runtime(int node_id, int world_size);
 
-    void run_task_on_node(Task * task, int node_id);
+    void run_task_on_node(STask task, int node_id);
+    void receive_message();
+
+    void setup();
+
+    Scheduler scheduler;
 
 
-public:
-    std::map<int, Task*> created_tasks;
-    std::map<int, Task*> running_tasks;
-    std::map<int, Task*> ready_tasks;
-
+private:
+    int node_id;
+    int world_size;
     int next_task_id = 0;
 
     int receiving = false;
     int *buffer;
     MPI_Request current_request;
+    std::vector<RuntimeWorker> workers;
 
-    void receive_message();
     void handle_create_task(int * data);
 
 };
