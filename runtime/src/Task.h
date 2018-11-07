@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <string>
+#include <thread>
 
 #include "utils.h"
 
@@ -29,6 +30,8 @@ public:
     int task_id;
     int parent_id;
     int origin_id;
+    int variables_count = -1;
+    std::thread run_thread;
     Worker* worker;
 
 

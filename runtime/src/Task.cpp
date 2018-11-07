@@ -55,6 +55,7 @@ vector<int> Task::serialize() {
     output.emplace_back(mergeable);
     output.emplace_back(priority);
     output.emplace_back(parent_id);
+    output.emplace_back(variables_count == -1 ? vars.size() : variables_count);
 
     return output;
 }
@@ -72,7 +73,7 @@ Task * Task::deserialize(int *input) {
     task->mergeable = input[index++] != 0;
     task->priority = input[index++];
     task->parent_id = input[index++];
-
+    task->variables_count = input[index++];
 
     return task;
 }

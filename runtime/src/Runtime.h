@@ -14,6 +14,9 @@ class Runtime {
 public:
     explicit Runtime() = default;
 
+    void run_task_on_node(Task * task, int node_id);
+
+
 public:
     std::map<int, Task*> created_tasks;
     std::map<int, Task*> running_tasks;

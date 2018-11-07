@@ -67,5 +67,12 @@ void Runtime::handle_create_task(int *data) {
     auto task = Task::deserialize(data);
     task->task_id = next_task_id++;
     created_tasks.emplace(task->task_id, task);
+    // Return the task_id to the caller
     MPI_Send(&task->task_id, 1, MPI_INT, task->origin_id, TAG::CREATE_TASK, MPI_COMM_WORLD);
+}
+
+void Runtime::run_task_on_node(Task *task, int node_id) {
+    auto data = task->serialize();
+    // Wait for completion, otherwise the buffer may be deallocated
+    MPI_Send(&data[0], data.size(), MPI_INT, node_id, TAG::RUN_TASK, MPI_COMM_WORLD);
 }

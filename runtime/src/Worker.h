@@ -16,9 +16,13 @@ public:
     explicit Worker(int worker_id);
 
     void submit_task(Task* task);
+    void handle_run_task(int* data, int length);
+
+    void ** request_memory(int origin, int task_id);
+    void handle_request_memory(int *data, int length);
 
 private:
-    std::map<int, Task> created_tasks;
+    std::map<int, Task*> created_tasks;
     std::mutex modify_state;
 
     int worker_id;
