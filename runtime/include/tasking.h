@@ -14,24 +14,33 @@
 #include <sys/resource.h>
 #include <map>
 
-class Task;
-void run_runtime(int);
-
-
+#include "../src/Task.h"
+#include "../src/Runtime.h"
+#include "../src/Worker.h"
 
 void setup_tasking(int arg_c, char** arg_v) {
     MPI_Init(nullptr, nullptr);
 
-	int world_rank;
-	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    // Get the number of processes
+    int world_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-	if (world_rank == 0){
-        run_runtime(world_rank);
-    } else {
-	    argc = arg_c;
-	    argv = arg_v;
-		run_worker(world_rank);
-	}
+    // Get the rank of the process
+    int world_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+    if (world_size < 2) {
+
+    }
+
+	if (world_rank == 0) {
+        Runtime r(world_rank, world_size);
+        r.setup();
+    }
+    else {
+        Worker w(world_rank);
+        w.setup();
+    }
 
 	MPI_Finalize();
     exit(EXIT_SUCCESS);

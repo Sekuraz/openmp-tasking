@@ -8,7 +8,9 @@
 static int worker_per_runtime = 100;
 
 enum TAG {
+    NO_MESSAGE,
     CREATE_TASK,
+    FINISH_TASK,
     RUN_TASK,
     REQUEST_MEMORY,
     REPORT_CAPACITY

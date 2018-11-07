@@ -15,7 +15,7 @@
 using namespace std;
 
 int main(int argc, char ** argv) {
-    MPI_Init(NULL, NULL);
+    MPI_Init(nullptr, nullptr);
 
     // Get the number of processes
     int world_size;
@@ -28,7 +28,7 @@ int main(int argc, char ** argv) {
     if (world_rank == 0) {
         Runtime r(world_rank, world_size);
         while (r.scheduler.get_all_tasks().size() < world_size - 1) {
-            r.receive_message();
+            r.handle_message();
         }
 
         if (world_size > 2 && r.scheduler.created_tasks[0]->priority != 42) {
@@ -42,13 +42,13 @@ int main(int argc, char ** argv) {
         }
     }
     else {
-        Worker w(world_rank);
-        current_task = new Task(0);
-        current_task->worker = &w;
+        auto w = make_shared<Worker>(world_rank);
+        current_task = make_shared<Task>(0);
+        current_task->worker = w;
 
-        Task t(1);
-        t.priority = 42;
-        t.schedule();
+        auto t = make_shared<Task>(1);
+        t->priority = 42;
+        current_task->worker.lock()->handle_create_task(t);
     }
 
     MPI_Finalize();

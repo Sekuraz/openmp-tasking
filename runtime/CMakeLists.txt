@@ -5,7 +5,7 @@ include_directories(${MPI_INCLUDE_PATH})
 
 add_library(schedule SHARED src/Scheduler.cpp)
 
-add_library(tdomp SHARED src/Task.cpp src/Worker.cpp src/Runtime.cpp)
+add_library(tdomp SHARED src/Task.cpp src/Worker.cpp src/Runtime.cpp src/Receiver.cpp src/globaldef.cpp)
 target_link_libraries(tdomp PUBLIC schedule ${MPI_LIBRARIES})
 
 
@@ -22,3 +22,5 @@ add_executable(create_task test/create_task.cpp)
 target_link_libraries(create_task tdomp)
 add_executable(setup test/setup.cpp)
 target_link_libraries(setup tdomp)
+add_executable(run_main test/run_main.cpp)
+target_link_libraries(run_main tdomp)

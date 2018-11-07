@@ -12,55 +12,12 @@
 
 #include <thread>
 #include <chrono>
+#include <iomanip>
 
 using namespace std;
 
-void Runtime::receive_message() {
-    int tag, source;
-    MPI_Status status;
+Runtime::Runtime(int node_id, int world_size) : Receiver(node_id), world_size(world_size) {
 
-    int receive_pending = false;
-    int receive_finished = false;
-
-    if (!receiving) {
-
-        //printf("runtime %d recv is not running. probing...\n", node_id);
-        MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &receive_pending, &status);
-    }
-    if (receive_pending) {
-        int buffer_size;
-        //printf("runtime %d started receiving\n", node_id);
-        MPI_Get_count(&status, MPI_INT, &buffer_size);
-
-        tag = status.MPI_TAG;
-        source = status.MPI_SOURCE;
-
-        cout << "Start receive " << buffer_size << " bytes from " << source << " with tag " << tag << endl;
-
-        buffer = new int[buffer_size];
-        MPI_Irecv(buffer, buffer_size, MPI_INT, source, tag, MPI_COMM_WORLD, &current_request);
-
-        receiving = true;
-    }
-    if (receiving) {
-        MPI_Test(&current_request, &receive_finished, &status);
-        if (receive_finished) {
-            receiving = false;
-            tag = status.MPI_TAG;
-            source = status.MPI_SOURCE;
-
-            cout << "Received " << tag << " from " << source << endl;
-
-            switch (tag) {
-                case TAG::CREATE_TASK:
-                    handle_create_task(buffer);
-                    break;
-                default:
-                    cout << "Received unknown tag from " << source << ": " << tag << endl;
-                    break;
-            }
-        }
-    }
 }
 
 void Runtime::handle_create_task(int *data) {
@@ -75,7 +32,7 @@ void Runtime::handle_create_task(int *data) {
 void Runtime::run_task_on_node(STask task, int node_id) {
     auto data = task->serialize();
     // Wait for completion, otherwise the buffer may be deallocated
-    MPI_Send(&data[0], data.size(), MPI_INT, node_id, TAG::RUN_TASK, MPI_COMM_WORLD);
+    MPI_Send(&data[0], (int)data.size(), MPI_INT, node_id, TAG::RUN_TASK, MPI_COMM_WORLD);
 }
 
 void Runtime::setup() {
@@ -103,6 +60,19 @@ void Runtime::setup() {
 	scheduler.enqueue(root_task);
 }
 
-Runtime::Runtime(int node_id, int world_size) : node_id(node_id), world_size(world_size) {
+void Runtime::handle_message() {
+    auto m = receive_message();
 
+
+    if (m.tag == TAG::NO_MESSAGE) {
+        return;
+    }
+
+    switch(m.tag) {
+        case TAG::CREATE_TASK:
+            handle_create_task(&m.data[0]); // Size does not matter
+            break;
+        default:
+            cout << setw(6) << node_id << ": Received unknown tag " << m.tag << " from " << m.source << endl;
+    }
 }

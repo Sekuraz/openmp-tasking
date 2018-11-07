@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 #include <vector>
+#include <queue>
 
 #include "utils.h"
 
@@ -21,15 +22,20 @@ public:
 
 
     void enqueue(STask task);
-    bool task_available();
+    bool work_available();
+
+    std::pair<int, STask> get_next_node_and_task();
+
     std::map<int, STask> get_all_tasks() {return created_tasks;}; // TODO remove
 
     std::map<int, STask> created_tasks;
     std::map<int, STask> running_tasks;
-    std::map<int, STask> ready_tasks;
+    std::queue<STask> ready_tasks;
 
 private:
     std::map<int, std::shared_ptr<RuntimeWorker> > workers;
+
+    bool can_run_task(STask task);
 
 };
 

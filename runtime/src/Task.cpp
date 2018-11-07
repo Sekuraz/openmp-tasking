@@ -3,9 +3,11 @@
 //
 
 
-#include "Task.h"
 #include "functions.h"
 #include "globals.h"
+#include "Task.h"
+#include "Worker.h"
+
 
 using namespace std;
 
@@ -13,6 +15,8 @@ Task::Task(int code_id)
         : code_id(code_id),
           task_id(-1),
           origin_id(-1),
+          finished(false),
+          running(false),
           if_clause(true),
           final(false),
           untied(false),
@@ -33,21 +37,12 @@ void Task::prepare() {
     }
 }
 
-void Task::schedule()  {
-    this->prepare();
-    void * arguments[this->vars.size()];
-    for (int i = 0; i < vars.size(); i++) {
-        arguments[i] = vars[i].pointer;
-    }
-
-    current_task->worker->submit_task(this);
-}
-
 vector<int> Task::serialize() {
     vector<int> output;
     output.emplace_back(code_id);
     output.emplace_back(task_id);
     output.emplace_back(origin_id);
+    output.emplace_back(finished);
     output.emplace_back(if_clause);
     output.emplace_back(final);
     output.emplace_back(untied);
@@ -66,6 +61,7 @@ STask Task::deserialize(int *input) {
     auto task = make_shared<Task>(input[index++]);
     task->task_id = input[index++];
     task->origin_id = input[index++];
+    task->finished = input[index++] != 0;
     task->if_clause = input[index++] != 0;
     task->final = input[index++] != 0;
     task->untied = input[index++] != 0;

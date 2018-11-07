@@ -6,16 +6,19 @@
 #define LIBTDOMP_WORKER_H
 
 #include <map>
-#include <mutex>
 
 #include "utils.h"
+#include "Receiver.h"
 
 
-class Worker {
+class Worker : public Receiver {
 public:
     explicit Worker(int node_id);
 
-    void submit_task(Task* task);
+    // methods invoked locally
+    void handle_create_task(STask task);
+    void handle_finish_task();
+
     void handle_run_task(int* data, int length);
 
     void ** request_memory(int origin, int task_id);
@@ -25,9 +28,7 @@ public:
 
 private:
     std::map<int, STask> created_tasks;
-    std::mutex modify_state;
 
-    int node_id;
     int runtime_node_id;
     int capacity = 4;
 };

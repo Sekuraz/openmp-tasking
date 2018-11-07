@@ -10,7 +10,7 @@
 using namespace std;
 
 int main(int argc, char ** argv) {
-    MPI_Init(NULL, NULL);
+    MPI_Init(nullptr, nullptr);
 
     // Get the number of processes
     int world_size;
@@ -44,8 +44,8 @@ int main(int argc, char ** argv) {
         }
     }
     else {
-        Worker w(world_rank);
-        w.setup();
+        auto w = make_shared<Worker>(world_rank);
+        w->setup();
     }
 
     MPI_Finalize();

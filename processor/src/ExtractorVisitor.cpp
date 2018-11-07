@@ -151,7 +151,7 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
 
     // replace the source code of the task with a call to the schedule function of the generated task struct
     auto source = this->getSourceCode(*code);
-    TheRewriter.ReplaceText(code->getLocStart(), (unsigned int) source.length(), "t_" + hash + "->schedule();");
+    TheRewriter.ReplaceText(code->getLocStart(), (unsigned int) source.length(), "current_task->worker.lock()->handle_create_task(t_" + hash + ");");
 
     if (source.back() != '}') { // single line
         source = "{ " + source + "; }";

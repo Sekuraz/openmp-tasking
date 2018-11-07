@@ -11,15 +11,13 @@
 
 #include "utils.h"
 
-#include "Worker.h"
+class Worker;
 
 class Task {
 public:
     explicit Task(int code_id);
 
     void prepare();
-
-    void schedule();
 
     std::vector<int> serialize();
 
@@ -29,9 +27,12 @@ public:
     int task_id;
     int parent_id;
     int origin_id;
+    bool finished;
+    bool running;
+    int capacity;
     int variables_count = -1;
     std::thread run_thread;
-    Worker* worker;
+    std::weak_ptr<Worker> worker;
 
 
     bool if_clause; // if false, parent may not continue until this is finished

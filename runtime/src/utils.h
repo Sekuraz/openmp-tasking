@@ -9,6 +9,7 @@
 #include <vector>
 #include <memory>
 
+#include "constants.h"
 
 class Task;
 typedef std::shared_ptr<Task> STask;
@@ -30,5 +31,10 @@ struct RuntimeWorker {
     int free_capcaity;
 };
 
+struct Message {
+    TAG tag;
+    int source;
+    std::vector<int> data;
+};
 
 #endif //LIBTDOMP_UTIL_H

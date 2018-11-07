@@ -9,12 +9,12 @@
 
 #include "utils.h"
 
-thread_local STask current_task;
+extern thread_local STask current_task;
 
-std::map<int, void (*)(void **)> tasking_function_map;
+extern std::map<int, void (*)(void **)> tasking_function_map;
 
-int argc;
-char** argv;
+extern int argc;
+extern char** argv;
 
 
 #endif //LIBTDOMP_GLOBALS_H
