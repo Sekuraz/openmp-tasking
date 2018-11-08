@@ -31,8 +31,8 @@ public:
     bool running;
     int capacity;
     int variables_count = -1;   // serialized (and calculated if unknown)
-    std::thread run_thread;
-    std::weak_ptr<Worker> worker;
+    std::thread* run_thread = nullptr;
+    Worker * worker; // shared_ptr and weak_ptr do not work here (shared_from_this is not working reliably)
 
 
     bool if_clause; // if false, parent may not continue until this is finished

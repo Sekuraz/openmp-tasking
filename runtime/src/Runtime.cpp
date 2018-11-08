@@ -33,13 +33,12 @@ void Runtime::handle_finish_task(int task_id, int used_capacity) {
     task->finished = true;
     task->running = false;
     task->capacity = used_capacity;
-
 }
 
-void Runtime::run_task_on_node(STask task, int node_id) {
+void Runtime::run_task_on_node(STask task, int node) {
     auto data = task->serialize();
     // Wait for completion, otherwise the buffer may be deallocated
-    MPI_Send(&data[0], (int)data.size(), MPI_INT, node_id, TAG::RUN_TASK, MPI_COMM_WORLD);
+    MPI_Send(&data[0], (int)data.size(), MPI_INT, node, TAG::RUN_TASK, MPI_COMM_WORLD);
 }
 
 void Runtime::setup() {

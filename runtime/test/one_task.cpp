@@ -61,9 +61,10 @@ int main(int argc, char ** argv) {
                 auto task = Task::deserialize(&m.data[0]);
                 current_task = task;
                 cout << setw(6) << world_rank << ": request to run task " << task->task_id << endl;
-                w->handle_finish_task();
+                w->handle_finish_task(current_task);
             }
             if (m.tag == TAG::SHUTDOWN) {
+                w->shutdown();
                 break;
             }
         }

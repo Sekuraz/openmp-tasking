@@ -17,7 +17,7 @@ public:
 
     // methods invoked locally
     void handle_create_task(STask task);
-    void handle_finish_task();
+    void handle_finish_task(STask task);
 
     void handle_run_task(STask task);
 
@@ -28,6 +28,7 @@ public:
 
 private:
     std::map<int, STask> created_tasks;
+    std::map<int, STask> running_tasks; // In order not to deallocate tasks before their thread ends
 
     int runtime_node_id;
     int capacity = 4;

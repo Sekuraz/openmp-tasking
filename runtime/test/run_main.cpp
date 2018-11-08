@@ -15,6 +15,12 @@
 
 using namespace std;
 
+void __main__(int argc, char ** argv) {
+    cout << "MAIN IS RUNNING" << endl;
+    current_task->worker->handle_finish_task(current_task);
+}
+
+
 int main(int argc, char ** argv) {
     MPI_Init(nullptr, nullptr);
 
@@ -56,7 +62,6 @@ int main(int argc, char ** argv) {
             if (m.tag == TAG::RUN_TASK) {
                 auto task = Task::deserialize(&m.data[0]);
                 w->handle_run_task(task);
-                w->handle_finish_task();
             }
             if (m.tag == TAG::SHUTDOWN) {
                 break;

@@ -159,6 +159,7 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
 
     // variable unpacking is done by the insertVarCapture function
     out << "    " << source;
+    out << "current_task->worker.lock()->handle_finish_task(current_task);" << endl;
     out << endl << "}" << endl;
 
     generated_ids.emplace_back(hash);

@@ -48,30 +48,43 @@ void Worker::setup() {
     MPI_Send(&this->capacity, 1, MPI_INT, this->runtime_node_id, TAG::REPORT_CAPACITY, MPI_COMM_WORLD);
 }
 
-void Worker::handle_finish_task() {
-    current_task->finished = true;
-    current_task->running = false;
-    int buffer[] = {current_task->task_id, current_task->capacity};
+void Worker::handle_finish_task(STask task) {
+    task->finished = true;
+    task->running = false;
+    int buffer[] = {task->task_id, task->capacity};
     MPI_Send(buffer, 2, MPI_INT, this->runtime_node_id, TAG::FINISH_TASK, MPI_COMM_WORLD);
+    running_tasks.erase(task->task_id);
+}
+
+void main_entry(STask task) {
+    current_task = task;
+    __main__(argc, argv);
+}
+
+void task_entry(STask task, void (*func)(void **), void** arguments) {
+    current_task = task;
+    func(arguments);
 }
 
 void Worker::handle_run_task(STask task) {
+    running_tasks.emplace(task->task_id, task);
     void ** memory;
 
     if (task->task_id != 0 && task->variables_count != 0 && task->origin_id != this->node_id) {
         memory = request_memory(task->origin_id, task->task_id);
     }
 
+    task->worker = this;
+    
     if (task->task_id == 0) {
         task->running = true;
-        task->run_thread = thread(__main__, argc, argv);
+        task->run_thread = new thread(main_entry, task);
     }
     else {
         auto func = tasking_function_map[task->code_id];
-        task->run_thread = thread(func, memory);
+        task->run_thread = new thread(task_entry, task, func, memory);
     }
 }
-
 
 void Worker::handle_request_memory(int *data, int length) {
     auto task = created_tasks[data[0]];
