@@ -212,6 +212,13 @@ void ExtractorVisitor::insertVarCapture(const ValueDecl& var, const SourceLocati
         layers++;
     }
 
+    if (!canon.isTriviallyCopyableType(var.getASTContext())) {
+        llvm::errs() << "Variable '" << name << "' of type '" << type << "' can not be used in a task.\n";
+        llvm::errs() << "The underlying type '" << canon.getAsString() << "' is not trivially copyable.\n";
+        llvm::errs().flush();
+        exit(1);
+    }
+
     if (find(this->handled_vars.begin(), this->handled_vars.end(), name) == this->handled_vars.end()) {
         stringstream capture;
         capture << "{\n\tVar " << name << "_var = {\"" << name << "\", ";
@@ -220,7 +227,10 @@ void ExtractorVisitor::insertVarCapture(const ValueDecl& var, const SourceLocati
         for (int i = 0; i < layers; i++) {
             capture << "*";
         }
-        capture << name << "), at_" << access_type << ", " << getVarSize(var) << "};";
+
+        bool copy = layers == 0 && canon.isTriviallyCopyableType(var.getASTContext());
+
+        capture << name << "), at_" << access_type << ", " << getVarSize(var) << ", " << copy << "};";
         capture << "\n\tt_" + hash + "->vars.emplace_back(" << name << "_var);\n}\n";
         TheRewriter.InsertTextAfterToken(destination, capture.str());
 

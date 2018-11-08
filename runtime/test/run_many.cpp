@@ -2,7 +2,7 @@
 #include <mpi.h>
 #include <iostream>
 
-#define AS 1000
+#define AS 100
 
 using namespace std;
 
@@ -19,6 +19,7 @@ void x_1494453934 (void* arguments[]) {
     void * p_pointer_1 = arguments[2];
     void * p_pointer_0 = &(p_pointer_1);
     int * p = *((int **) p_pointer_0);
+
     {
             a[i] = i + *p;
     }
@@ -34,23 +35,21 @@ int tasking_setup_1494453934 = setup_1494453934();
 
 void test(int a[AS], int* p) {
     for(int i = 0; i < AS; i++) {
-        std::cout << "generating task " << i << std::endl;
-
         auto t_1494453934 = std::make_shared<Task>(1494453934);
         t_1494453934->if_clause = (i == 3);
         t_1494453934->final = (i == 5);
         t_1494453934->untied = true;
         t_1494453934->mergeable = true;
         {
-            Var a_var = {"a", &(*a), at_firstprivate, 40000};
+            Var a_var = {"a", &(*a), at_firstprivate, 40000, 0};
             t_1494453934->vars.emplace_back(a_var);
         }
         {
-            Var i_var = {"i", &(i), at_firstprivate, 4};
+            Var i_var = {"i", &(i), at_firstprivate, 4, 1};
             t_1494453934->vars.emplace_back(i_var);
         }
         {
-            Var p_var = {"p", &(*p), at_firstprivate, 0};
+            Var p_var = {"p", &(*p), at_firstprivate, 0, 0};
             t_1494453934->vars.emplace_back(p_var);
         }
         t_1494453934->in.emplace_back("a");
@@ -61,7 +60,7 @@ void test(int a[AS], int* p) {
 
 
 int * __array__; // in order to test the values after completion
-
+int cc;
 
 void __main__(int argc, char *argv[]) {
 
@@ -75,13 +74,16 @@ void __main__(int argc, char *argv[]) {
     }
 
     {
-        std::cout << "hello from main" << std::endl;
+        cout << "hello from main" << endl;
 
         __array__ = new int[AS];
-        int c = 2;
-        int* p = &c;
+        cc = 2;
+        int* p = &cc;
 
         test(__array__, p);
+
+        cout << "good bye from main" << endl;
+
         return;
     }
 }
@@ -90,7 +92,7 @@ int main(int argc, char** argv) {
 
     auto e = EXIT_SUCCESS;
     for (int i = 0; i < AS; i++) {
-        if (__array__[i] != i + 2) {
+        if (__array__[i] != i + 2) { // c = 2
             cout << "WRONG array value at " << i << ": " << __array__[i] << endl;
             e = EXIT_FAILURE;
         }

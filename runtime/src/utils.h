@@ -21,6 +21,7 @@ struct Var {
     void * pointer;
     access_type access;
     size_t size;
+    bool copy;
 };
 
 struct RuntimeWorker {

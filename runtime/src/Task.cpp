@@ -34,6 +34,16 @@ void Task::prepare() {
         if (var.size == 0) {
             var.size = get_allocated_size(var.pointer);
         }
+
+        // Copy out trivially copyable variables, they are most likely lost otherwise
+        // They are usually constants or iteration variables etc.
+        // FIXME leaking memory
+        // FIXME copy only stuff from the stack
+        if (var.copy) {
+            void * storage = malloc(var.size);
+            memcpy(storage, var.pointer, var.size);
+            var.pointer = storage;
+        }
     }
 }
 

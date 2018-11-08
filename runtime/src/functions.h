@@ -7,6 +7,7 @@
 
 #include <fstream>
 #include <sstream>
+#include <iostream>
 #include <sys/resource.h>
 #include <malloc.h>
 
@@ -44,13 +45,16 @@ size_t get_allocated_size(void* pointer) {
                 getrlimit(RLIMIT_STACK, &lim);
                 return lim.rlim_cur;
             }
-            else {
+            else { // maybe static data from a library or the binary itself
 //                std::cout << line << std::endl;
 //                asm("int $3"); // breakpoint
 
                 rlimit lim;
                 getrlimit(RLIMIT_STACK, &lim);
                 return lim.rlim_cur;
+
+                // TODO get the size of the variable by parsing the elf headers
+                // SEE https://stackoverflow.com/questions/45697799/determine-total-size-of-static-variables-of-class
             }
 
         }
