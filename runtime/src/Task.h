@@ -23,14 +23,14 @@ public:
 
     static STask deserialize(int * input);
 
-    int code_id;
-    int task_id;
-    int parent_id;
-    int origin_id;
-    bool finished;
+    int code_id;                // serialized
+    int task_id;                // serialized
+    int parent_id;              // serialized
+    int origin_id;              // serialized
+    bool finished;              // serialized
     bool running;
     int capacity;
-    int variables_count = -1;
+    int variables_count = -1;   // serialized (and calculated if unknown)
     std::thread run_thread;
     std::weak_ptr<Worker> worker;
 

@@ -16,27 +16,24 @@
 
 class Runtime : public Receiver {
 public:
-    explicit Runtime(int node_id, int world_size);
-
-    void run_task_on_node(STask task, int node_id);
-
-    void setup();
 
     Scheduler scheduler;
 
+    explicit Runtime(int node_id, int world_size);
+
+    void setup();
+
     void handle_message();
+    void handle_create_task(STask task);
+    void handle_finish_task(int task_id, int used_capacity);
 
-    void handle_create_task(int * data);
-
+    void run_task_on_node(STask task, int node_id);
+    void shutdown();
 
 
 private:
     int world_size;
     int next_task_id = 0;
-
-
-    std::vector<RuntimeWorker> workers;
-
 
 };
 

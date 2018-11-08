@@ -41,16 +41,16 @@ vector<int> Task::serialize() {
     vector<int> output;
     output.emplace_back(code_id);
     output.emplace_back(task_id);
+    output.emplace_back(parent_id);
     output.emplace_back(origin_id);
     output.emplace_back(finished);
+    output.emplace_back(variables_count == -1 ? vars.size() : variables_count);
     output.emplace_back(if_clause);
     output.emplace_back(final);
     output.emplace_back(untied);
     output.emplace_back(shared_by_default);
     output.emplace_back(mergeable);
     output.emplace_back(priority);
-    output.emplace_back(parent_id);
-    output.emplace_back(variables_count == -1 ? vars.size() : variables_count);
 
     return output;
 }
@@ -61,15 +61,15 @@ STask Task::deserialize(int *input) {
     auto task = make_shared<Task>(input[index++]);
     task->task_id = input[index++];
     task->origin_id = input[index++];
+    task->parent_id = input[index++];
     task->finished = input[index++] != 0;
+    task->variables_count = input[index++];
     task->if_clause = input[index++] != 0;
     task->final = input[index++] != 0;
     task->untied = input[index++] != 0;
     task->shared_by_default = input[index++] != 0;
     task->mergeable = input[index++] != 0;
     task->priority = input[index++];
-    task->parent_id = input[index++];
-    task->variables_count = input[index++];
 
     return task;
 }

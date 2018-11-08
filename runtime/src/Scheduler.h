@@ -17,9 +17,6 @@ class Task;
 class Scheduler {
 public:
     void add_worker(std::shared_ptr<RuntimeWorker> worker);
-    std::shared_ptr<RuntimeWorker> get_worker(int node_id);
-    int get_worker_count() {return workers.size();};
-
 
     void enqueue(STask task);
     bool work_available();
@@ -28,12 +25,14 @@ public:
 
     std::map<int, STask> get_all_tasks() {return created_tasks;}; // TODO remove
 
+    std::map<int, std::shared_ptr<RuntimeWorker> > workers;
+
+
     std::map<int, STask> created_tasks;
     std::map<int, STask> running_tasks;
     std::queue<STask> ready_tasks;
 
 private:
-    std::map<int, std::shared_ptr<RuntimeWorker> > workers;
 
     bool can_run_task(STask task);
 

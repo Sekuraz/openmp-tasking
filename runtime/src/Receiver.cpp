@@ -37,8 +37,8 @@ Message Receiver::receive_message() {
 
         buffer = vector<int>((size_t)buffer_size);
 
-        cout << setw(6) << node_id << ": receiving " << buffer.size() << " bytes from " << source << " with tag " << tag << endl;
-
+        cout << setw(6) << node_id << ": receiving " << setw(10) << buffer.size() << " bytes from "
+                << setw(6) << source << " with tag " << tag << endl;
         MPI_Irecv(&buffer[0], buffer_size, MPI_INT, source, tag, MPI_COMM_WORLD, &current_request);
 
         receiving = true;
@@ -52,7 +52,8 @@ Message Receiver::receive_message() {
             tag = status.MPI_TAG;
             source = status.MPI_SOURCE;
 
-            cout << setw(6) << node_id << ": received  " << buffer.size() << " bytes from " << source << " with tag " << tag << endl;
+            cout << setw(6) << node_id << ": received  " << setw(10) << buffer.size() << " bytes from "
+                    << setw(6) << source << " with tag " << tag << endl;
 
             auto tag_t = static_cast<TAG>(tag);
 

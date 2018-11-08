@@ -52,8 +52,6 @@ void Worker::handle_run_task(int *data, int length) {
     task->run_thread = thread(func, memory);
 }
 
-
-
 void Worker::handle_request_memory(int *data, int length) {
     auto task = created_tasks[data[0]];
 }
