@@ -69,6 +69,7 @@ void task_entry(STask task, void (*func)(void **), void** arguments) {
 
 void Worker::handle_run_task(STask task) {
     running_tasks.emplace(task->task_id, task);
+
     void ** memory;
 
     if (task->task_id != 0 && task->variables_count != 0) {
@@ -87,15 +88,19 @@ void Worker::handle_run_task(STask task) {
     }
 
     task->worker = this;
+    task->capacity = 1;
+    task->running = true;
 
     if (task->task_id == 0) {
-        task->running = true;
         task->run_thread = new thread(main_entry, task);
     }
     else {
         auto func = tasking_function_map[task->code_id];
         task->run_thread = new thread(task_entry, task, func, memory);
     }
+
+    int capacity_change = -1;
+    MPI_Send(&capacity_change, 1, MPI_INT, this->runtime_node_id, TAG::REPORT_CAPACITY, MPI_COMM_WORLD);
 }
 
 void Worker::handle_request_memory(int *data, int length) {
@@ -118,7 +123,7 @@ void Worker::run() {
 
         handle_message();
 
-        this_thread::sleep_for(chrono::milliseconds(10));
+        this_thread::sleep_for(chrono::milliseconds(1));
     }
 }
 

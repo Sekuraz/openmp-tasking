@@ -19,7 +19,7 @@ bool Scheduler::work_available() {
     bool node_available = false;
 
     for (auto & worker : workers) {
-        if (worker.second->free_capcaity > 0) {
+        if (worker.second->free_capacity > 0) {
             node_available = true;
             break;
         }
@@ -36,9 +36,9 @@ std::pair<int, STask> Scheduler::get_next_node_and_task() {
     int run_node_id = 0, free_capacity = 0;
 
     for (auto& worker : workers) {
-        if (worker.second->free_capcaity > free_capacity) {
+        if (worker.second->free_capacity > free_capacity) {
             run_node_id = worker.first;
-            free_capacity = worker.second->free_capcaity;
+            free_capacity = worker.second->free_capacity;
         }
     }
 

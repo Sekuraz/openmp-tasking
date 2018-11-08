@@ -29,7 +29,7 @@ struct RuntimeWorker {
     int node_id;
 
     int capacity;
-    int free_capcaity;
+    int free_capacity;
 };
 
 struct Message {

@@ -26,7 +26,7 @@ public:
     void handle_message();
 
     void handle_create_task(STask task);
-    void handle_finish_task(int task_id, int used_capacity);
+    void handle_finish_task(int task_id, int used_capacity, int source);
 
     void run_task_on_node(STask task, int node_id);
     void shutdown();

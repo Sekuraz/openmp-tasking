@@ -4,15 +4,15 @@
 
 #include <mpi.h>
 #include <memory>
-
-#include "constants.h"
-#include "Runtime.h"
-#include "Task.h"
-
-
 #include <thread>
 #include <chrono>
 #include <iomanip>
+
+#include "constants.h"
+#include "utils.h"
+#include "Runtime.h"
+#include "Task.h"
+
 
 using namespace std;
 
@@ -30,10 +30,10 @@ void Runtime::handle_create_task(STask task) {
     MPI_Send(&task->task_id, 1, MPI_INT, task->origin_id, TAG::CREATE_TASK, MPI_COMM_WORLD);
 }
 
-void Runtime::handle_finish_task(int task_id, int used_capacity) {
+void Runtime::handle_finish_task(int task_id, int used_capacity, int source) {
     auto task = scheduler.created_tasks[task_id];
-    task->capacity = used_capacity;
     scheduler.set_finished(task);
+    scheduler.workers[source]->free_capacity += used_capacity;
 }
 
 void Runtime::run_task_on_node(STask task, int node) {
@@ -58,7 +58,7 @@ void Runtime::setup() {
         MPI_Recv(&capacity, 1, MPI_INT, i, TAG::REPORT_CAPACITY, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
 		w->capacity = capacity;
-		w->free_capcaity = capacity;
+		w->free_capacity = capacity;
 		scheduler.add_worker(w);
 	}
 
@@ -83,7 +83,10 @@ void Runtime::handle_message() {
             handle_create_task(task);
             break;
         case TAG::FINISH_TASK:
-            handle_finish_task(m.data[0], m.data[1]);
+            handle_finish_task(m.data[0], m.data[1], m.source);
+            break;
+        case TAG::REPORT_CAPACITY:
+            scheduler.workers[m.source]->free_capacity += m.data[0];
             break;
         default:
             cout << setw(6) << node_id << ": Received unknown tag " << m.tag << " from " << m.source << endl;
@@ -107,6 +110,15 @@ void Runtime::run() {
         }
 
         this->handle_message();
+
+//        bool worker_available = true;
+//        for (auto& worker : scheduler.workers) {
+//            worker_available &= worker.second->free_capacity > 0;
+//        }
+//        if (!worker_available) {
+//            cout << "NO WORKERS" << endl;
+//        }
+
     }
 
     shutdown();
