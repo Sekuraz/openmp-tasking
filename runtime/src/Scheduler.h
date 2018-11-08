@@ -8,7 +8,7 @@
 #include <map>
 #include <memory>
 #include <vector>
-#include <queue>
+#include <list>
 
 #include "utils.h"
 
@@ -31,7 +31,7 @@ public:
 
     std::map<int, STask> created_tasks;
     std::map<int, STask> running_tasks;
-    std::queue<STask> ready_tasks;
+    std::list<STask> ready_tasks;
 
 private:
 

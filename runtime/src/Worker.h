@@ -21,8 +21,8 @@ public:
 
     void handle_run_task(STask task);
 
-    void ** request_memory(int origin, int task_id);
-    void handle_request_memory(int *data, int length);
+    void ** request_memory(int origin, STask task);
+    void handle_request_memory(int task_id, int source);
 
     void setup();
     void run();
@@ -33,7 +33,8 @@ private:
     std::map<int, STask> running_tasks; // In order not to deallocate tasks before their thread ends
 
     int runtime_node_id;
-    int capacity = 4;
+    int capacity = 1;
+    int free_capacity = 1;
 
     bool should_run = false;
 };

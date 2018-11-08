@@ -21,6 +21,8 @@ Runtime::Runtime(int node_id, int world_size) : Receiver(node_id), world_size(wo
 }
 
 void Runtime::handle_create_task(STask task) {
+    lock_guard lock(mpi_receive_lock);
+
     task->task_id = next_task_id++;
     auto parent = scheduler.created_tasks[task->parent_id];
     parent->children.push_back(task);
@@ -28,17 +30,24 @@ void Runtime::handle_create_task(STask task) {
 
     // Return the task_id to the caller
     MPI_Send(&task->task_id, 1, MPI_INT, task->origin_id, TAG::CREATE_TASK, MPI_COMM_WORLD);
+    MPI_Recv(nullptr, 0, MPI_INT, task->origin_id, TAG::CREATE_TASK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    // wait for the task to be fully set up.
 }
 
 void Runtime::handle_finish_task(int task_id, int used_capacity, int source) {
     auto task = scheduler.created_tasks[task_id];
     scheduler.set_finished(task);
     scheduler.workers[source]->free_capacity += used_capacity;
+
+    cout << setw(6) << node_id << ": task " << task->task_id << " completed on " << source << endl;
 }
 
 void Runtime::run_task_on_node(STask task, int node) {
     auto data = task->serialize();
-    // Wait for completion, otherwise the buffer may be deallocated
+
+    cout << setw(6) << node_id << ": scheduling task " << task->task_id << " on " << node << ", capa: "
+            << scheduler.workers[node]->free_capacity << endl;
+
     MPI_Send(&data[0], (int)data.size(), MPI_INT, node, TAG::RUN_TASK, MPI_COMM_WORLD);
 }
 
@@ -86,7 +95,7 @@ void Runtime::handle_message() {
             handle_finish_task(m.data[0], m.data[1], m.source);
             break;
         case TAG::REPORT_CAPACITY:
-            scheduler.workers[m.source]->free_capacity += m.data[0];
+//            scheduler.workers[m.source]->free_capacity = m.data[0];
             break;
         default:
             cout << setw(6) << node_id << ": Received unknown tag " << m.tag << " from " << m.source << endl;
@@ -102,23 +111,28 @@ void Runtime::shutdown() {
 }
 
 void Runtime::run() {
-    while (!scheduler.created_tasks[0]->children_finished) {
+    auto main_task = scheduler.created_tasks[0];
+
+    while (!main_task->children_finished) {
 
         while (scheduler.work_available()) {
             auto node_and_task = this->scheduler.get_next_node_and_task();
-            this->run_task_on_node(node_and_task.second, node_and_task.first);
+            if (node_and_task.first > 0) {
+                this->run_task_on_node(node_and_task.second, node_and_task.first);
+            }
         }
 
         this->handle_message();
 
-//        bool worker_available = true;
-//        for (auto& worker : scheduler.workers) {
-//            worker_available &= worker.second->free_capacity > 0;
-//        }
+        bool worker_available = false;
+        for (auto& worker : scheduler.workers) {
+            worker_available |= worker.second->free_capacity > 0;
+        }
 //        if (!worker_available) {
 //            cout << "NO WORKERS" << endl;
 //        }
 
+        this_thread::sleep_for(chrono::milliseconds(10));
     }
 
     shutdown();

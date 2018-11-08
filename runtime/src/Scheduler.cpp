@@ -11,7 +11,7 @@ void Scheduler::enqueue(STask task) {
     created_tasks.emplace(task->task_id, task);
 
     if (can_run_task(task)) {
-        ready_tasks.push(task);
+        ready_tasks.push_back(task);
     }
 }
 
@@ -33,24 +33,23 @@ void Scheduler::add_worker(std::shared_ptr<RuntimeWorker> worker) {
 }
 
 std::pair<int, STask> Scheduler::get_next_node_and_task() {
-    int run_node_id = 0, free_capacity = 0;
+    int run_node_id = -1, free_capacity = 0;
 
-    for (auto& worker : workers) {
-        if (worker.second->free_capacity > free_capacity) {
-            run_node_id = worker.first;
-            free_capacity = worker.second->free_capacity;
+    for (auto& [_, worker] : workers) {
+        if (worker->free_capacity > free_capacity) {
+            run_node_id = worker->node_id;
+            free_capacity = worker->free_capacity;
         }
     }
 
-    STask to_run;
-    while (!ready_tasks.empty()) {
-        to_run = ready_tasks.front();
-        ready_tasks.pop();
-        if (!can_run_task(to_run)) {
+    for (auto& task : ready_tasks) {
+        if (!can_run_task(task)) {
             continue;
         }
         else {
-            return make_pair(run_node_id, to_run);
+            ready_tasks.remove(task);
+            workers[run_node_id]->free_capacity--;
+            return make_pair(run_node_id, task);
         }
     }
 

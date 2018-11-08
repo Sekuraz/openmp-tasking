@@ -52,8 +52,8 @@ Message Receiver::receive_message() {
             tag = status.MPI_TAG;
             source = status.MPI_SOURCE;
 
-            cout << setw(6) << node_id << ": received  " << setw(10) << buffer.size() << " bytes from "
-                    << setw(6) << source << " with tag " << tag << endl;
+//            cout << setw(6) << node_id << ": received  " << setw(10) << buffer.size() << " bytes from "
+//                    << setw(6) << source << " with tag " << tag << endl;
 
             auto tag_t = static_cast<TAG>(tag);
 

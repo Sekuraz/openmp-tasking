@@ -19,7 +19,7 @@ public:
 
     Message receive_message();
 
-protected:
+//protected:
     int node_id;
     std::mutex mpi_receive_lock; // other threads which are using mpi have to block
 
