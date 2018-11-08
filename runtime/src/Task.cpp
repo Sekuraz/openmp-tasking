@@ -60,8 +60,8 @@ STask Task::deserialize(int *input) {
 
     auto task = make_shared<Task>(input[index++]);
     task->task_id = input[index++];
-    task->origin_id = input[index++];
     task->parent_id = input[index++];
+    task->origin_id = input[index++];
     task->finished = input[index++] != 0;
     task->variables_count = input[index++];
     task->if_clause = input[index++] != 0;

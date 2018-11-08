@@ -25,6 +25,9 @@ int main(int argc, char ** argv) {
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
+    MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
+
+
     if (world_rank == 0) {
         Runtime r(world_rank, world_size);
         while (r.scheduler.get_all_tasks().size() < world_size - 1) {
@@ -36,8 +39,8 @@ int main(int argc, char ** argv) {
             exit(EXIT_FAILURE);
         }
 
-        if (world_size > 3 && r.scheduler.created_tasks[1]->parent_id != -1) {
-            cout << "wrong parent id" << endl;
+        if (world_size > 3 && r.scheduler.created_tasks[1]->parent_id != 0) {
+            cout << "wrong parent id: " << r.scheduler.created_tasks[1]->parent_id << endl;
             exit(EXIT_FAILURE);
         }
     }
@@ -45,6 +48,7 @@ int main(int argc, char ** argv) {
         auto w = make_shared<Worker>(world_rank);
         current_task = make_shared<Task>(0);
         current_task->worker = w;
+        current_task->task_id = 0;
 
         auto t = make_shared<Task>(1);
         t->priority = 42;

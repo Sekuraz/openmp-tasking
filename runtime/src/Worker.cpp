@@ -13,14 +13,17 @@
 using namespace std;
 
 void Worker::handle_create_task(STask task) {
-    lock_guard lock(this->mpi_receive_lock);
 
+    task->prepare();
+    task->parent_id = current_task->task_id;
     task->origin_id = node_id;
-
     auto data = task->serialize();
+
 //    cout << "Creating Task(code_id: " << task->code_id
 //         << ", origin: " << task->origin_id
 //         << ", runtime: " << this->runtime_node_id << ")" << endl;
+
+    lock_guard lock(this->mpi_receive_lock);
     MPI_Send(&data[0], (int)data.size(), MPI_INT, this->runtime_node_id, TAG::CREATE_TASK, MPI_COMM_WORLD);
 
     int task_id;
