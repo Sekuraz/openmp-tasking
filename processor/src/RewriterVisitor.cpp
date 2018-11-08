@@ -43,7 +43,7 @@ bool RewriterVisitor::VisitFunctionDecl(clang::FunctionDecl *f) {
 
 
         stringstream out;
-        out << "void __main_0(int argc, char *argv[]) {" << endl;
+        out << "void __main__(int argc, char *argv[]) {" << endl;
         out << main_code.str();
         out << "}" << endl;
 

@@ -2,6 +2,10 @@
 // Created by markus on 05.11.18.
 //
 
+#define __MAIN__
+
+#include "helper.h"
+
 #include <mpi.h>
 #include <thread>
 #include <chrono>

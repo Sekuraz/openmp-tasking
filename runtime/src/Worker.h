@@ -19,7 +19,7 @@ public:
     void handle_create_task(STask task);
     void handle_finish_task();
 
-    void handle_run_task(int* data, int length);
+    void handle_run_task(STask task);
 
     void ** request_memory(int origin, int task_id);
     void handle_request_memory(int *data, int length);
