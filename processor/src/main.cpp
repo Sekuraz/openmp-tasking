@@ -48,7 +48,7 @@ public:
         if ((rewriter.needsHeader || extractor.needsHeader) && !header_added) {
             extractor.TheRewriter.InsertTextBefore((*DR.begin())->getLocStart(),
                                                  "#include <memory>\n\n");
-            extractor.TheRewriter.InsertTextBefore((*DR.begin())->getLocStart(),
+            extractor.TheRewriter.InsertTextAfter((*DR.begin())->getLocStart(),
                                                  "#include \"tasking.h\"\n");
             extractor.TheRewriter.InsertTextAfter((*DR.begin())->getLocStart(),
                                                  "#include \"/tmp/tasking_functions/all.hpp\"\n");
@@ -153,9 +153,6 @@ int main(int argc, char *argv[]) {
         ofstream out_file(out_file_name);
         out_file << string(RewriteBuf->begin(), RewriteBuf->end());
         out_file.close();
-
-        llvm::outs() << out_file_name;
-
     }
     else {
         llvm::outs() << string(RewriteBuf->begin(), RewriteBuf->end());

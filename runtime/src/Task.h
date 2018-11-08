@@ -6,6 +6,7 @@
 #define LIBTDOMP_TASK_H
 
 #include <vector>
+#include <list>
 #include <string>
 #include <thread>
 
@@ -18,6 +19,7 @@ public:
     explicit Task(int code_id);
 
     void prepare();
+    void update(STask other);
 
     std::vector<int> serialize();
 
@@ -33,6 +35,9 @@ public:
     int variables_count = -1;   // serialized (and calculated if unknown)
     std::thread* run_thread = nullptr;
     Worker * worker; // shared_ptr and weak_ptr do not work here (shared_from_this is not working reliably)
+
+    std::list<std::weak_ptr<Task> > children;
+    bool children_finished = false;
 
 
     bool if_clause; // if false, parent may not continue until this is finished

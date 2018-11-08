@@ -22,8 +22,9 @@ public:
     explicit Runtime(int node_id, int world_size);
 
     void setup();
-
+    void run();
     void handle_message();
+
     void handle_create_task(STask task);
     void handle_finish_task(int task_id, int used_capacity);
 

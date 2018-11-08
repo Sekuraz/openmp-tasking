@@ -3,6 +3,7 @@
 //
 
 #include <mpi.h>
+#include <iomanip>
 
 #include "constants.h"
 #include "Worker.h"
@@ -25,7 +26,6 @@ void Worker::handle_create_task(STask task) {
 //         << ", origin: " << task->origin_id
 //         << ", runtime: " << this->runtime_node_id << ")" << endl;
 
-    lock_guard lock(this->mpi_receive_lock);
     MPI_Send(&data[0], (int)data.size(), MPI_INT, this->runtime_node_id, TAG::CREATE_TASK, MPI_COMM_WORLD);
 
     int task_id;
@@ -46,6 +46,7 @@ Worker::Worker(int node_id) : Receiver(node_id), runtime_node_id((node_id / work
 
 void Worker::setup() {
     MPI_Send(&this->capacity, 1, MPI_INT, this->runtime_node_id, TAG::REPORT_CAPACITY, MPI_COMM_WORLD);
+    should_run = true;
 }
 
 void Worker::handle_finish_task(STask task) {
@@ -70,12 +71,23 @@ void Worker::handle_run_task(STask task) {
     running_tasks.emplace(task->task_id, task);
     void ** memory;
 
-    if (task->task_id != 0 && task->variables_count != 0 && task->origin_id != this->node_id) {
-        memory = request_memory(task->origin_id, task->task_id);
+    if (task->task_id != 0 && task->variables_count != 0) {
+        if (task->origin_id == this->node_id) {
+            created_tasks[task->task_id]->update(task);
+            task = created_tasks[task->task_id];
+
+            memory = (void **) malloc(task->variables_count * sizeof(size_t));
+            for (int i = 0; i < task->variables_count; i++) {
+                memory[i] = task->vars[i].pointer;
+            }
+        }
+        else {
+            memory = request_memory(task->origin_id, task->task_id);
+        }
     }
 
     task->worker = this;
-    
+
     if (task->task_id == 0) {
         task->running = true;
         task->run_thread = new thread(main_entry, task);
@@ -99,4 +111,35 @@ void ** Worker::request_memory(int origin, int task_id) {
 
 
     throw "not implemented";
+}
+
+void Worker::run() {
+    while (should_run) {
+
+        handle_message();
+
+        this_thread::sleep_for(chrono::milliseconds(10));
+    }
+}
+
+void Worker::handle_message() {
+    auto m = receive_message();
+
+    if (m.tag == TAG::NO_MESSAGE) {
+        return;
+    }
+
+    STask task = nullptr;
+
+    switch(m.tag) {
+        case TAG::RUN_TASK:
+            task = Task::deserialize(&m.data[0]);
+            handle_run_task(task);
+            break;
+        case TAG::SHUTDOWN:
+            should_run = false; // There should be enough delay to let the thread finish
+            break;
+        default:
+            cout << setw(6) << node_id << ": Received unknown tag " << m.tag << " from " << m.source << endl;
+    }
 }

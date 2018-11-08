@@ -25,8 +25,6 @@ ExtractorVisitor::ExtractorVisitor(Rewriter &R, string main_file)
 
     out << "#ifndef __" << f << "__" << endl;
     out << "#define __" << f << "__" << endl;
-    out << "#include <map>" << endl;
-    out << "extern std::map<int, void (*)(void **)> tasking_function_map;" << endl;
 }
 
 void ExtractorVisitor::finalize() {
@@ -65,11 +63,9 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
     this->handled_vars.clear();
 
     // This is also the code id of the task
-    stringstream hash_stream;
     unsigned long long hash_long = hasher(task->getLocStart().printToString(TheRewriter.getSourceMgr()));
     int hash_int = hash_long & INT_MAX;
-    hash_stream << hash_int;
-    hash = hash_stream.str();
+    hash = to_string(hash_int);
 
     TheRewriter.InsertTextBefore(task->getLocStart(), "//");
     TheRewriter.InsertTextAfterToken(task->getLocEnd(), "\nauto t_" + hash + " = std::make_shared<Task>(" + hash + ");\n");
@@ -106,7 +102,7 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
                     auto expr = cast<DeclRefExpr>(pc);
                     auto name = expr->getDecl()->getName();
 
-                    string dep_type;
+                    string dep_type = "";
 
                     switch (clause->getDependencyKind()) {
                         case OMPC_DEPEND_in:
@@ -151,16 +147,16 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
 
     // replace the source code of the task with a call to the schedule function of the generated task struct
     auto source = this->getSourceCode(*code);
-    TheRewriter.ReplaceText(code->getLocStart(), (unsigned int) source.length(), "current_task->worker.lock()->handle_create_task(t_" + hash + ");");
+    TheRewriter.ReplaceText(code->getLocStart(), (unsigned int) source.length(), "current_task->worker->handle_create_task(t_" + hash + ");");
 
     if (source.back() != '}') { // single line
         source = "{ " + source + "; }";
     }
 
     // variable unpacking is done by the insertVarCapture function
-    out << "    " << source;
-    out << "current_task->worker.lock()->handle_finish_task(current_task);" << endl;
-    out << endl << "}" << endl;
+    out << "    " << source << endl;
+    out << "current_task->worker->handle_finish_task(current_task);" << endl;
+    out << endl << "}" << endl << endl;
 
     generated_ids.emplace_back(hash);
 

@@ -25,6 +25,8 @@ public:
     void handle_request_memory(int *data, int length);
 
     void setup();
+    void run();
+    void handle_message();
 
 private:
     std::map<int, STask> created_tasks;
@@ -32,6 +34,8 @@ private:
 
     int runtime_node_id;
     int capacity = 4;
+
+    bool should_run = false;
 };
 
 

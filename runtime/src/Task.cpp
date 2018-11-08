@@ -37,6 +37,21 @@ void Task::prepare() {
     }
 }
 
+void Task::update(STask other) {
+    this->code_id = other->code_id;
+    this->task_id = other->task_id;
+    this->parent_id = other->parent_id;
+    this->origin_id = other->origin_id;
+    this->finished = other->finished;
+    this->variables_count = (this->variables_count > other->variables_count) ? this->variables_count : other->variables_count;
+    this->if_clause = other->if_clause;
+    this->final = other->final;
+    this->untied = other->untied;
+    this->shared_by_default = other->shared_by_default;
+    this->mergeable = other->mergeable;
+    this->priority = other->priority;
+}
+
 vector<int> Task::serialize() {
     vector<int> output;
     output.emplace_back(code_id);

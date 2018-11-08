@@ -58,5 +58,38 @@ std::pair<int, STask> Scheduler::get_next_node_and_task() {
 }
 
 bool Scheduler::can_run_task(STask task) {
-    return task->code_id == 0;
+    //return task->code_id == 0;
+    return true; // no dependencies
+}
+
+void Scheduler::set_finished(STask task) {
+    task->finished = true;
+    task->running = false;
+
+    task->children_finished = true;
+
+    for (auto & child : task->children) {
+        try {
+            task->children_finished &= child.lock()->children_finished;
+        }
+        catch (bad_weak_ptr&) {
+            // Children is already gone
+        }
+    }
+
+    if (task->parent_id >= 0) {
+        auto parent = created_tasks[task->parent_id];
+        parent->children_finished = true;
+
+        for (auto & child : parent->children) {
+            try {
+                parent->children_finished &= child.lock()->children_finished;
+            }
+            catch (bad_weak_ptr &) {
+                // Children is already gone
+            }
+        }
+    }
+
+    // TODO the dependency stuff here
 }

@@ -5,22 +5,15 @@
 #ifndef PROCESSOR_TASKING_H
 #define PROCESSOR_TASKING_H
 
-#include <vector>
-#include <string>
-#include <fstream>
-#include <sstream>
-#include <malloc.h>
 #include <mpi.h>
-#include <sys/resource.h>
-#include <map>
 
 #include "../src/globals.h"
 #include "../src/Task.h"
 #include "../src/Runtime.h"
 #include "../src/Worker.h"
 
-void setup_tasking(int arg_c, char** arg_v) {
-    MPI_Init(nullptr, nullptr);
+void do_tasking(int arg_c, char** arg_v) {
+    MPI_Init(&arg_c, &arg_v);
 
     // Get the number of processes
     int world_size;
@@ -30,24 +23,23 @@ void setup_tasking(int arg_c, char** arg_v) {
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
-    argc = arg_c;
-    argv = arg_v;
-
     if (world_size < 2) {
-
+        std::cout << "This code MUST be run by mpirun!" << std::endl;
+        exit(EXIT_FAILURE);
     }
 
     if (world_rank == 0) {
-        Runtime r(world_rank, world_size);
-        r.setup();
+        auto r = std::make_shared<Runtime>(world_rank, world_size);
+        r->setup();
+        r->run();
     }
     else {
-        Worker w(world_rank);
-        w.setup();
+        auto w = std::make_shared<Worker>(world_rank);
+        w->setup();
+        w->run();
     }
 
-	MPI_Finalize();
-    exit(EXIT_SUCCESS);
+    MPI_Finalize();
 };
 
 void taskwait() {

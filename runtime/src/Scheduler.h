@@ -19,6 +19,7 @@ public:
     void add_worker(std::shared_ptr<RuntimeWorker> worker);
 
     void enqueue(STask task);
+    void set_finished(STask task);
     bool work_available();
 
     std::pair<int, STask> get_next_node_and_task();

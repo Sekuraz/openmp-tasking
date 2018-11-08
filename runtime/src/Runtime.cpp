@@ -22,6 +22,8 @@ Runtime::Runtime(int node_id, int world_size) : Receiver(node_id), world_size(wo
 
 void Runtime::handle_create_task(STask task) {
     task->task_id = next_task_id++;
+    auto parent = scheduler.created_tasks[task->parent_id];
+    parent->children.push_back(task);
     scheduler.enqueue(task);
 
     // Return the task_id to the caller
@@ -30,9 +32,8 @@ void Runtime::handle_create_task(STask task) {
 
 void Runtime::handle_finish_task(int task_id, int used_capacity) {
     auto task = scheduler.created_tasks[task_id];
-    task->finished = true;
-    task->running = false;
     task->capacity = used_capacity;
+    scheduler.set_finished(task);
 }
 
 void Runtime::run_task_on_node(STask task, int node) {
@@ -62,14 +63,13 @@ void Runtime::setup() {
 	}
 
 	auto root_task = make_shared<Task>(0);
-	root_task->task_id = 0;
+	root_task->task_id = next_task_id++;
 
 	scheduler.enqueue(root_task);
 }
 
 void Runtime::handle_message() {
     auto m = receive_message();
-
 
     if (m.tag == TAG::NO_MESSAGE) {
         return;
@@ -96,6 +96,20 @@ void Runtime::shutdown() {
     }
     MPI_Finalize();
     exit(EXIT_SUCCESS);
+}
+
+void Runtime::run() {
+    while (!scheduler.created_tasks[0]->children_finished) {
+
+        while (scheduler.work_available()) {
+            auto node_and_task = this->scheduler.get_next_node_and_task();
+            this->run_task_on_node(node_and_task.second, node_and_task.first);
+        }
+
+        this->handle_message();
+    }
+
+    shutdown();
 }
 
 

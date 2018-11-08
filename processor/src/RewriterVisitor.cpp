@@ -39,7 +39,7 @@ bool RewriterVisitor::VisitFunctionDecl(clang::FunctionDecl *f) {
         }
 
         TheRewriter.RemoveText(SourceRange(body->getLocStart(), body->getLocEnd()));
-        TheRewriter.InsertTextAfter(body->getLocStart(), "{ setup_tasking(argc, argv); }");
+        TheRewriter.InsertTextAfter(body->getLocStart(), "{ do_tasking(argc, argv); }");
 
 
         stringstream out;
