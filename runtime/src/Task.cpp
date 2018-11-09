@@ -3,6 +3,8 @@
 //
 
 
+#include <assert.h>
+
 #include "functions.h"
 #include "globals.h"
 #include "Task.h"
@@ -22,6 +24,7 @@ Task::Task(int code_id)
           untied(false),
           shared_by_default(true),
           mergeable(true),
+          capacity(1),
           priority(0)
 {
     if (current_task) {
@@ -63,13 +66,14 @@ void Task::update(STask other) {
 }
 
 vector<int> Task::serialize() {
+    variables_count = variables_count == -1 ? vars.size() : variables_count;
     vector<int> output;
     output.emplace_back(code_id);
     output.emplace_back(task_id);
     output.emplace_back(parent_id);
     output.emplace_back(origin_id);
     output.emplace_back(finished);
-    output.emplace_back(variables_count == -1 ? vars.size() : variables_count);
+    output.emplace_back(variables_count);
     output.emplace_back(if_clause);
     output.emplace_back(final);
     output.emplace_back(untied);
@@ -97,4 +101,44 @@ STask Task::deserialize(int *input) {
     task->priority = input[index++];
 
     return task;
+}
+
+void Task::free_after_run(bool ran_local) {
+    if (ran_local) {
+        // Only deallocate copy variables if they are no longer in use
+        // Other memory was created by someone else, leave it intact
+        for (auto& var : this->vars) {
+            if (var.copy && this->children_finished) {
+                free(var.pointer);
+                var.pointer = nullptr; // Throw segfault if the memory is accessed again
+            }
+        }
+    }
+    else {
+        // free backup
+        for (auto& var : this->vars) {
+            free(var.pointer);
+            var.pointer = nullptr; // Throw segfault if the memory is accessed again
+        }
+    }
+
+    // save current values and set memory to nullptr, memory should only be accessed during task run
+    for (int i = 0; i < this->variables_count; i++) {
+        this->vars[i].pointer = this->memory[i];
+        this->memory[i] = nullptr; // Throw segfault if the memory is accessed again
+    }
+
+    free(this->memory);
+    this->memory = nullptr; // Throw segfault if the memory is accessed again
+}
+
+void Task::free_after_children() {
+    assert(this->children_finished);
+
+    // There is no reference to this memory any more
+    for (auto& var : this->vars) {
+        assert(var.pointer != nullptr); // no double free
+        free(var.pointer);
+        var.pointer = nullptr; // Throw segfault if the memory is accessed again
+    }
 }

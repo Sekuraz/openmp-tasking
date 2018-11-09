@@ -12,7 +12,7 @@ using namespace std;
 
 #include "tasking.h"
 
-void x_1494453934 (void* arguments[]) {
+void x_1494453934 (size_t** arguments) {
     void * a_pointer_1 = arguments[0];
     void * a_pointer_0 = &(a_pointer_1);
     int * a = *((int **) a_pointer_0);
@@ -64,7 +64,7 @@ void test(int a[AS], int* p) {
 int * __array__; // in order to test the values after completion
 int cc;
 
-void __main__(int argc, char *argv[]) {
+void __main__1(int argc, char *argv[]) {
 
     // Get the number of processes
     int world_size;
@@ -89,6 +89,13 @@ void __main__(int argc, char *argv[]) {
         return;
     }
 }
+
+void __main__(int argc, char *argv[]) {
+    __main__1(argc, argv);
+    current_task->worker->handle_finish_task(current_task);
+}
+
+
 int main(int argc, char** argv) {
     do_tasking(argc, argv);
 

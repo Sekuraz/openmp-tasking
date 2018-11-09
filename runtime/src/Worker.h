@@ -21,8 +21,11 @@ public:
 
     void handle_run_task(STask task);
 
-    void ** request_memory(int origin, STask task);
+    void request_memory(int origin, STask task);
     void handle_request_memory(int task_id, int source);
+
+    void write_memory(STask task);
+    void handle_write_memory(int task_id, int source);
 
     void setup();
     void run();

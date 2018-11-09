@@ -64,7 +64,6 @@ int main(int argc, char ** argv) {
                 w->handle_finish_task(current_task);
             }
             if (m.tag == TAG::SHUTDOWN) {
-                w->shutdown();
                 break;
             }
         }

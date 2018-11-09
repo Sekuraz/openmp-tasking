@@ -14,9 +14,12 @@
 class Task;
 typedef std::shared_ptr<Task> STask;
 
-enum access_type {at_shared, at_firstprivate, at_private, at_default};
+enum access_type {at_shared, at_firstprivate, at_private, at_default, at_none};
 
 struct Var {
+    Var(std::string name, void* pointer, access_type access, size_t size, bool copy)
+        : name(std::move(name)), pointer(pointer), access(access), size(size), copy(copy) {}
+
     std::string name;
     void * pointer;
     access_type access;

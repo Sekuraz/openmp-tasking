@@ -22,6 +22,8 @@ public:
     void set_finished(STask task);
     bool work_available();
 
+    STask first_unfinished_child(int task_id);
+
     std::pair<int, STask> get_next_node_and_task();
 
     std::map<int, STask> get_all_tasks() {return created_tasks;}; // TODO remove

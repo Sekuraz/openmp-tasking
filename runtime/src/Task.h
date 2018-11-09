@@ -9,6 +9,7 @@
 #include <list>
 #include <string>
 #include <thread>
+#include <mutex>
 
 #include "utils.h"
 
@@ -20,6 +21,8 @@ public:
 
     void prepare();
     void update(STask other);
+    void free_after_run(bool ran_local);
+    void free_after_children();
 
     std::vector<int> serialize();
 
@@ -38,6 +41,8 @@ public:
 
     std::list<std::weak_ptr<Task> > children;
     bool children_finished = false;
+    size_t** memory;
+    std::mutex memory_lock; // Only one thread should mess with the memory at one time
 
 
     bool if_clause; // if false, parent may not continue until this is finished

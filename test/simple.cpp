@@ -22,15 +22,6 @@ int main(int argc, char** argv) {
     int c = 0;
     int* p = &c;
 
-    #pragma omp parallel
-    #pragma omp single
-    /*
-    for(int i = 0; i < AS; i++) {
-        #pragma omp task untied mergeable if(i == 3) final(i == 5)
-        {
-            a[i] = i + *p;
-        }
-    } */
     test(a, p);
     return a[0];
 }

@@ -4,6 +4,7 @@
 
 #include <mpi.h>
 #include <iomanip>
+#include <cstdint>
 
 #include "constants.h"
 #include "Worker.h"
@@ -21,12 +22,9 @@ void Worker::handle_create_task(STask task) {
     task->prepare();
     task->parent_id = current_task->task_id;
     task->origin_id = node_id;
+
+
     auto data = task->serialize();
-
-//    cout << "Creating Task(code_id: " << task->code_id
-//         << ", origin: " << task->origin_id
-//         << ", runtime: " << this->runtime_node_id << ")" << endl;
-
     MPI_Send(&data[0], (int)data.size(), MPI_INT, this->runtime_node_id, TAG::CREATE_TASK, MPI_COMM_WORLD);
 
     int task_id;
@@ -53,10 +51,17 @@ void Worker::setup() {
 }
 
 void Worker::handle_finish_task(STask task) {
+    //lock_guard lock(mpi_receive_lock);
+
     task->finished = true;
     task->running = false;
 
     this->free_capacity += task->capacity;
+
+
+    if (task->task_id != 0) {
+        write_memory(task);
+    }
 
     int buffer[] = {task->task_id, task->capacity};
     MPI_Send(buffer, 2, MPI_INT, this->runtime_node_id, TAG::FINISH_TASK, MPI_COMM_WORLD);
@@ -70,16 +75,15 @@ void main_entry(STask task) {
     __main__(argc, argv);
 }
 
-void task_entry(STask task, void (*func)(void **), void** arguments) {
+void task_entry(STask task, void (*func)(size_t **), size_t** arguments) {
     current_task = task;
     func(arguments);
 }
 
 void Worker::handle_run_task(STask task) {
+    //lock_guard lock(mpi_receive_lock);
 
     running_tasks.emplace(task->task_id, task);
-
-    void ** memory;
 
     // main task has id 0 and different invocation
     if (task->task_id != 0 && task->variables_count != 0) {
@@ -87,13 +91,13 @@ void Worker::handle_run_task(STask task) {
             created_tasks[task->task_id]->update(task);
             task = created_tasks[task->task_id];
 
-            memory = (void **) malloc(task->variables_count * sizeof(size_t));
+            task->memory = (size_t **) malloc(task->variables_count * sizeof(size_t));
             for (int i = 0; i < task->vars.size(); i++) {
-                memory[i] = task->vars[i].pointer;
+                task->memory[i] = (size_t*) task->vars[i].pointer;
             }
         }
         else {
-            memory = request_memory(task->origin_id, task);
+            request_memory(task->origin_id, task);
         }
     }
 
@@ -106,7 +110,7 @@ void Worker::handle_run_task(STask task) {
     }
     else {
         auto func = tasking_function_map[task->code_id];
-        task->run_thread = new thread(task_entry, task, func, memory);
+        task->run_thread = new thread(task_entry, task, func, task->memory);
     }
 
     this->free_capacity -= 1;
@@ -114,8 +118,6 @@ void Worker::handle_run_task(STask task) {
 }
 
 void Worker::handle_request_memory(int task_id, int source) {
-    lock_guard lock(mpi_receive_lock);
-
     auto task = created_tasks[task_id];
     task->variables_count = task->vars.size();
 
@@ -131,14 +133,11 @@ void Worker::handle_request_memory(int task_id, int source) {
         //cout << node_id << ": Sending: " << sizes[i] << " to " << source << endl;
         MPI_Send(task->vars[i].pointer, task->vars[i].size, MPI_BYTE, source, TAG::REQUEST_MEMORY, MPI_COMM_WORLD);
     }
-
-
-
-
 }
 
-void ** Worker::request_memory(int origin, STask task) {
-    lock_guard lock(mpi_receive_lock);
+void Worker::request_memory(int origin, STask task) {
+
+    lock_guard lock(mpi_receive_lock); // locked by handle_run_task??
 
     MPI_Send(&task->task_id, 1, MPI_INT, origin, TAG::REQUEST_MEMORY, MPI_COMM_WORLD);
 
@@ -150,21 +149,23 @@ void ** Worker::request_memory(int origin, STask task) {
     vector<int> sizes(variables_count);
     MPI_Recv(&sizes[0], sizes.size(), MPI_INT, origin, TAG::REQUEST_MEMORY, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    void ** memory = (void **) malloc(variables_count * sizeof(size_t));
+    task->memory = (size_t **) malloc(variables_count * sizeof(size_t));
 
     MPI_Status status;
 
     for (int i = 0; i < variables_count; i++) {
-        memory[i] = malloc(sizes[i]);
+        task->memory[i] = (size_t *)malloc(sizes[i]);
 
         //cout << node_id << ": Receiving: " << sizes[i] << " from " << origin << endl;
 
-        MPI_Recv(memory[i], sizes[i], MPI_BYTE, origin, TAG::REQUEST_MEMORY, MPI_COMM_WORLD, &status);
+        MPI_Recv(task->memory[i], sizes[i], MPI_BYTE, origin, TAG::REQUEST_MEMORY, MPI_COMM_WORLD, &status);
+
+        void * backup = malloc(sizes[i]);
+        memcpy(backup, task->memory[i], sizes[i]);
+        task->vars.emplace_back(Var("", backup, access_type::at_none, sizes[i], false));
     }
 
     //cout << "MEMORY TRANSFERRED" << endl;
-
-    return memory;
 }
 
 void Worker::run() {
@@ -197,7 +198,81 @@ void Worker::handle_message() {
         case TAG::REQUEST_MEMORY:
             handle_request_memory(m.data[0], m.source); // There should be enough delay to let the thread finish
             break;
+        case TAG::WRITE_MEMORY:
+            handle_write_memory(m.data[0], m.source); // There should be enough delay to let the thread finish
+            break;
         default:
             cout << setw(6) << node_id << ": Received unknown tag " << m.tag << " from " << m.source << endl;
+    }
+}
+
+void Worker::write_memory(STask task) {
+    cout << setw(6) << node_id << ": Writing back for " << task->task_id << " to " << task->origin_id << endl;
+
+
+    //lock_guard mem(task->memory_lock); // prevent others from messing with the memory during this call
+
+    // if we were running local -> no need for a transfer
+    if (task->origin_id != node_id) {
+
+        MPI_Send(&task->task_id, 1, MPI_INT, task->origin_id, TAG::WRITE_MEMORY, MPI_COMM_WORLD);
+
+        for (size_t var = 0; var < task->variables_count; var++) {
+            uint64_t change_count = 0;
+            size_t end = 1 + ((task->vars[var].size - 1) / sizeof(uint8_t)); // size if pointer is integer (4 byte)
+
+            auto backup = (uint8_t *) task->vars[var].pointer;
+            auto data = (uint8_t *) task->memory[var];
+
+            for (size_t i = 0; i < end; i ++) {
+                change_count += (backup[i] != data[i]);
+            }
+
+            auto buffer = vector<size_t>();
+            //buffer.reserve(change_count * 2); // we need that many elements
+
+            for (size_t i = 0; i < end; i++) {
+                if (backup[i] != data[i]) {
+                    buffer.emplace_back(i);
+                    buffer.emplace_back(data[i]);
+                }
+            }
+
+//            for (int i = 0; i < change_count * 2; i += 2) {
+//                cout << "=Task " << task->task_id << " changed value of " << var << " at " << buffer[i] << " from "
+//                    << (int)backup[buffer[i]] << " to " << (int)buffer[i + 1] << endl;
+//            }
+
+            auto size = buffer.size();
+            MPI_Send(&size, 1, MPI_UINT64_T, task->origin_id, TAG::WRITE_MEMORY, MPI_COMM_WORLD);
+            MPI_Send(&buffer[0], size, MPI_UINT64_T, task->origin_id, TAG::WRITE_MEMORY, MPI_COMM_WORLD);
+        }
+    }
+
+    // free the backup
+    task->free_after_run(task->origin_id == node_id);
+}
+
+void Worker::handle_write_memory(int task_id, int source) {
+    auto task = created_tasks[task_id];
+    lock_guard rec(mpi_receive_lock);
+    //lock_guard mem(task->memory_lock);
+
+    cout << setw(6) << node_id << ": Receiving back for " << task->task_id << " from " << source << endl;
+
+
+    for (auto& var : task->vars) {
+
+        auto memory = (uint8_t *) var.pointer;
+
+        uint64_t elems = 0;
+        MPI_Recv(&elems, 1, MPI_UINT64_T, source, TAG::WRITE_MEMORY, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+        auto buffer = vector<uint64_t>(elems);
+        MPI_Recv(&buffer[0], elems, MPI_UINT64_T, source, TAG::WRITE_MEMORY, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+        for (uint64_t elem = 0; elem < elems; elem += 2) {
+            memory[buffer[elem]] = (uint8_t) buffer[elem + 1];
+        }
     }
 }

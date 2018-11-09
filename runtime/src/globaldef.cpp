@@ -11,7 +11,7 @@
 
 thread_local STask current_task;
 
-std::map<int, void (*)(void **)> tasking_function_map;
+std::map<int, void (*)(size_t**)> tasking_function_map;
 
 int argc;
 char** argv;

@@ -42,7 +42,7 @@ int main(int argc, char ** argv) {
             }
         }
         for (int i = 1; i < world_size; i++) {
-            if (r.scheduler.workers[i]->free_capcaity != 4) {
+            if (r.scheduler.workers[i]->free_capacity != 4) {
                 cout << "Worker " << i << " reported wrong free_capacity (set to 4 currently)" << endl;
                 exit(EXIT_FAILURE);
 

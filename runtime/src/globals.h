@@ -11,7 +11,7 @@
 
 extern thread_local STask current_task;
 
-extern std::map<int, void (*)(void **)> tasking_function_map;
+extern std::map<int, void (*)(size_t**)> tasking_function_map;
 
 extern int argc;
 extern char** argv;

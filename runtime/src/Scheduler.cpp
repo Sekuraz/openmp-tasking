@@ -92,3 +92,13 @@ void Scheduler::set_finished(STask task) {
 
     // TODO the dependency stuff here
 }
+
+STask Scheduler::first_unfinished_child(int task_id) {
+    auto task = created_tasks[task_id];
+    for (auto& child : task->children) {
+        if (!child.lock()->finished) {
+            return child.lock();
+        }
+    }
+}
+

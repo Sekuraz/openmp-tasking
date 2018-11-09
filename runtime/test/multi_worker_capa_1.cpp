@@ -4,7 +4,7 @@
 #include <thread>
 #include <chrono>
 
-#define AS 100
+#define AS 300
 
 using namespace std;
 
@@ -12,7 +12,7 @@ using namespace std;
 
 #include "tasking.h"
 
-void x_1494453934 (void* arguments[]) {
+void x_1494453934 (size_t** arguments) {
 
     cout << "     " << current_task->worker->node_id << ": Running task " << current_task->task_id << endl;
 
@@ -67,7 +67,7 @@ bool ran_main = false;
 int * __array__; // in order to test the values after completion
 int cc;
 
-void __main__(int argc, char *argv[]) {
+void __main__1(int argc, char *argv[]) {
     ran_main = true;
 
     // Get the number of processes
@@ -94,6 +94,12 @@ void __main__(int argc, char *argv[]) {
         return;
     }
 }
+
+void __main__(int argc, char *argv[]) {
+    __main__1(argc, argv);
+    current_task->worker->handle_finish_task(current_task);
+}
+
 int main(int argc, char** argv) {
     do_tasking(argc, argv);
 
