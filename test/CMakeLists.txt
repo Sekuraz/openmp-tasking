@@ -14,12 +14,3 @@ add_custom_command(
 
 add_executable(simple ${CMAKE_BINARY_DIR}/simple.pre.cpp)
 target_link_libraries(simple PRIVATE tdomp)
-
-add_custom_command(
-        OUTPUT ${CMAKE_BINARY_DIR}/main_task.pre.cpp
-        COMMAND ../processor/processor ${CMAKE_CURRENT_SOURCE_DIR}/main_task.cpp --outfile ${CMAKE_BINARY_DIR}/main_task.pre.cpp
-        DEPENDS ../processor/processor ${CMAKE_CURRENT_SOURCE_DIR}/main_task.cpp
-)
-
-add_executable(main_task ${CMAKE_BINARY_DIR}/main_task.pre.cpp)
-target_link_libraries(main_task PRIVATE tdomp)

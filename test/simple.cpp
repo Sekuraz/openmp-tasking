@@ -1,7 +1,11 @@
 
 #include "omp.h"
 
-#define AS 10000
+#include <thread>
+#include <chrono>
+#include <iostream>
+
+#define AS 1000
 
 void test(int a[AS], int* p) {
     for(int i = 0; i < AS; i++) {
@@ -9,6 +13,7 @@ void test(int a[AS], int* p) {
         #pragma omp task untied mergeable if(i == 3) final(i == 5) depend(in: a)
         {
             a[i] = i + *p;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
 }
@@ -25,4 +30,3 @@ int main(int argc, char** argv) {
     test(a, p);
     return a[0];
 }
-
