@@ -71,7 +71,7 @@ bool ExtractorVisitor::VisitOMPTaskDirective(OMPTaskDirective* task) {
     TheRewriter.InsertTextAfterToken(task->getLocEnd(), "\nauto t_" + hash + " = std::make_shared<Task>(" + hash + ");\n");
 
     // start the function which is executed remotely
-    out << "void x_" << hash << " (void* arguments[]) {" << endl;
+    out << "void x_" << hash << " (size_t** arguments) {" << endl;
 
     this->extractConditionClause<OMPIfClause>(*task, "if_clause");
     this->extractConditionClause<OMPFinalClause>(*task, "final");

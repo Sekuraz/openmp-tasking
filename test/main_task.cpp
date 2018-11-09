@@ -3,6 +3,7 @@
 
 #include <thread>
 #include <chrono>
+#include <iostream>
 
 #define AS 100
 
@@ -12,7 +13,7 @@ void test(int a[AS], int* p) {
         #pragma omp task untied mergeable if(i == 3) final(i == 5) depend(in: a)
         {
             a[i] = i + *p;
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
 }

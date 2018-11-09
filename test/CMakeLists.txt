@@ -13,7 +13,7 @@ add_custom_command(
 )
 
 add_executable(simple ${CMAKE_BINARY_DIR}/simple.pre.cpp)
-target_link_libraries(simple PRIVATE tdomp-old)
+target_link_libraries(simple PRIVATE tdomp)
 
 add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/main_task.pre.cpp

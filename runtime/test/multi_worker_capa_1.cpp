@@ -3,6 +3,7 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <cmath>
 
 #define AS 300
 
@@ -26,7 +27,7 @@ void x_1494453934 (size_t** arguments) {
     int * p = *((int **) p_pointer_0);
 
     {
-            a[i] = i + *p;
+            a[i] = (int) pow(i, *p);
     }
     current_task->worker->handle_finish_task(current_task);
 }
@@ -106,7 +107,7 @@ int main(int argc, char** argv) {
     if (ran_main) {
         auto e = EXIT_SUCCESS;
         for (int i = 0; i < AS; i++) {
-            if (__array__[i] != i + 2) { // c = 2
+            if (__array__[i] != i * i) { // c = 2
                 cout << "WRONG array value at " << i << ": " << __array__[i] << endl;
                 e = EXIT_FAILURE;
             }

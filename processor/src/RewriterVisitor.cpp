@@ -28,18 +28,18 @@ bool RewriterVisitor::VisitFunctionDecl(clang::FunctionDecl *f) {
         // We assume that there is more than one statement in the body
         auto body = cast<CompoundStmt>(f->getBody());
 
-        TheRewriter.RemoveText(SourceRange(body->getLocStart(), body->getLocEnd()));
-        TheRewriter.InsertTextAfter(body->getLocStart(), "{ do_tasking(argc, argv); }");
-
-
         stringstream out;
-        out << "void __main__1(int argc, char *argv[]) {" << endl;
+        out << "int __main__1(int argc, char *argv[]) {" << endl;
         out << getSourceCode(*body);
+        out << "return 0;" << endl;
         out << "}" << endl;
         out << "void __main__(int argc, char *argv[]) {" << endl;
         out << "    __main__1(argc, argv);" << endl;
         out << "    current_task->worker->handle_finish_task(current_task);" << endl;
         out << "}" << endl;
+
+        TheRewriter.RemoveText(SourceRange(body->getLocStart(), body->getLocEnd()));
+        TheRewriter.InsertTextAfter(body->getLocStart(), "{ do_tasking(argc, argv); }");
 
         TheRewriter.InsertTextBefore(f->getLocStart(), out.str());
 
